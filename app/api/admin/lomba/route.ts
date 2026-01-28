@@ -135,18 +135,77 @@ export async function POST(request: NextRequest) {
         .trim();
     }
 
+    // Transform data to match Directus schema EXACTLY
+    // CRITICAL: Field names must match Directus schema, not form field names
+    const transformedData: Record<string, unknown> = {
+      nama_lomba: body.nama_lomba,
+      slug: body.slug,
+      kategori: body.kategori,
+      tingkat: body.tingkat,
+      penyelenggara: body.penyelenggara,
+      // IMPORTANT: Directus uses 'deadline', not 'deadline_pendaftaran'
+      deadline: body.deadline_pendaftaran,
+      tanggal_pelaksanaan: body.tanggal_pelaksanaan,
+      lokasi: body.lokasi || null,
+      deskripsi: body.deskripsi || null,
+      // IMPORTANT: Directus uses 'syarat_ketentuan', not 'persyaratan'
+      syarat_ketentuan: body.persyaratan || null,
+      link_pendaftaran: body.link_pendaftaran || null,
+      // IMPORTANT: Directus uses 'biaya', not 'biaya_pendaftaran'
+      biaya: body.biaya_pendaftaran || 0,
+      is_featured: body.is_featured || false,
+      is_urgent: false,
+      // Map status values: form uses 'upcoming/ongoing/closed', Directus uses 'open/closed/coming-soon'
+      status: body.status === 'upcoming' ? 'coming-soon' : (body.status === 'ongoing' ? 'open' : 'closed'),
+    };
+
+    // Transform hadiah from HTML string to JSON array
+    if (body.hadiah) {
+      if (typeof body.hadiah === 'string') {
+        // Convert HTML string to JSON array format expected by Directus
+        transformedData.hadiah = JSON.stringify([{
+          peringkat: 'Informasi Hadiah',
+          nominal: '',
+          keterangan: body.hadiah
+        }]);
+      } else {
+        transformedData.hadiah = JSON.stringify(body.hadiah);
+      }
+    } else {
+      transformedData.hadiah = null;
+    }
+
+    // Transform kontak_panitia to JSON object
+    if (body.cp_nama || body.cp_whatsapp) {
+      transformedData.kontak_panitia = JSON.stringify({
+        nama: body.cp_nama || '',
+        email: '',
+        phone: body.cp_whatsapp || '',
+        whatsapp: body.cp_whatsapp || ''
+      });
+    } else {
+      transformedData.kontak_panitia = null;
+    }
+
+    // Set tags as null (not used in form)
+    transformedData.tags = null;
+
+    console.log('Transformed data for Directus:', JSON.stringify(transformedData, null, 2));
+
     const response = await fetch(`${DIRECTUS_URL}/items/apm_lomba`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(transformedData),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.errors?.[0]?.message || 'Failed to create lomba');
+      const errorMessage = error.errors?.[0]?.message || 'Failed to create lomba';
+      console.error('Directus API Error:', JSON.stringify(error, null, 2));
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();

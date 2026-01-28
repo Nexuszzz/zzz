@@ -9,16 +9,16 @@ export interface Lomba {
   nama_lomba: string;
   slug: string;
   deskripsi?: string;
-  deadline?: string;
+  deadline?: string; // This is the correct field name in Directus
   kategori: string;
   tingkat: 'regional' | 'nasional' | 'internasional';
   status: 'open' | 'closed' | 'coming-soon';
   link_pendaftaran?: string;
-  syarat_ketentuan?: string;
+  syarat_ketentuan?: string; // This is the correct field name in Directus
   hadiah?: string; // JSON string
   kontak_panitia?: string; // JSON string
   poster?: string;
-  biaya: number;
+  biaya: number; // This is the correct field name in Directus (not biaya_pendaftaran)
   lokasi?: string;
   tanggal_pelaksanaan?: string;
   penyelenggara?: string;
