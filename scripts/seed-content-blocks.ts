@@ -7,9 +7,9 @@
 
 export { }; // Make this a module
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
-const ADMIN_EMAIL = 'admin@apm-portal.id';
-const ADMIN_PASSWORD = 'Admin@APM2026!';
+const DIRECTUS_URL = process.env.DIRECTUS_URL || 'https://directus-apmt.flx.web.id';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@apmt.flx.web.id';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Nyawitnihanak67';
 
 interface ContentBlock {
     key: string;
