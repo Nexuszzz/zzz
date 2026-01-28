@@ -5,13 +5,20 @@ const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
 async function getStats() {
   try {
+    // Removed is_deleted filter from all queries - field doesn't exist in current schema
     const [lombaRes, expoRes, prestasiRes, registrasiRes, messagesRes] = await Promise.all([
-      fetch(`${DIRECTUS_URL}/items/apm_lomba?aggregate[count]=*&filter[is_deleted][_eq]=false`, { cache: 'no-store' }),
-      fetch(`${DIRECTUS_URL}/items/apm_expo?aggregate[count]=*&filter[is_deleted][_eq]=false`, { cache: 'no-store' }),
-      fetch(`${DIRECTUS_URL}/items/apm_prestasi?aggregate[count]=*&filter[is_deleted][_eq]=false`, { cache: 'no-store' }),
+      fetch(`${DIRECTUS_URL}/items/apm_lomba?aggregate[count]=*`, { cache: 'no-store' }),
+      fetch(`${DIRECTUS_URL}/items/apm_expo?aggregate[count]=*`, { cache: 'no-store' }),
+      fetch(`${DIRECTUS_URL}/items/apm_prestasi?aggregate[count]=*`, { cache: 'no-store' }),
       fetch(`${DIRECTUS_URL}/items/apm_expo_registrations?aggregate[count]=*`, { cache: 'no-store' }),
-      fetch(`${DIRECTUS_URL}/items/apm_messages?aggregate[count]=*&filter[status][_eq]=unread&filter[is_deleted][_eq]=false`, { cache: 'no-store' }),
+      fetch(`${DIRECTUS_URL}/items/apm_messages?aggregate[count]=*&filter[status][_eq]=unread`, { cache: 'no-store' }),
     ]);
+
+    // Log responses for debugging
+    const responses = [lombaRes, expoRes, prestasiRes, registrasiRes, messagesRes];
+    responses.forEach((res, idx) => {
+      if (!res.ok) console.error(`Stats fetch ${idx} failed:`, res.status);
+    });
 
     const [lombaData, expoData, prestasiData, registrasiData, messagesData] = await Promise.all([
       lombaRes.json(),
@@ -20,6 +27,12 @@ async function getStats() {
       registrasiRes.json(),
       messagesRes.json(),
     ]);
+
+    console.log('Dashboard stats:', {
+      lomba: lombaData,
+      expo: expoData,
+      prestasi: prestasiData,
+    });
 
     return {
       lomba: lombaData.data?.[0]?.count || 0,
@@ -36,8 +49,9 @@ async function getStats() {
 
 async function getRecentPrestasi() {
   try {
+    // Removed is_deleted filter - field doesn't exist in current schema
     const res = await fetch(
-      `${DIRECTUS_URL}/items/apm_prestasi?limit=5&sort=-date_created&filter[is_deleted][_eq]=false&fields=id,nama_prestasi,nama_lomba,tingkat,status,submitter_name,date_created`,
+      `${DIRECTUS_URL}/items/apm_prestasi?limit=5&sort=-date_created&fields=id,nama_prestasi,nama_lomba,tingkat,status,submitter_name,date_created`,
       { cache: 'no-store' }
     );
     const data = await res.json();
@@ -50,11 +64,12 @@ async function getRecentPrestasi() {
 
 async function getPendingVerification() {
   try {
+    // Removed is_deleted filter - field doesn't exist in current schema
     const [prestasiRes, registrasiRes] = await Promise.all([
-      fetch(`${DIRECTUS_URL}/items/apm_prestasi?aggregate[count]=*&filter[status][_eq]=pending&filter[is_deleted][_eq]=false`, { cache: 'no-store' }),
+      fetch(`${DIRECTUS_URL}/items/apm_prestasi?aggregate[count]=*&filter[status][_eq]=pending`, { cache: 'no-store' }),
       fetch(`${DIRECTUS_URL}/items/apm_expo_registrations?aggregate[count]=*&filter[status][_eq]=pending`, { cache: 'no-store' }),
     ]);
-    
+
     const [prestasiData, registrasiData] = await Promise.all([
       prestasiRes.json(),
       registrasiRes.json(),
@@ -78,40 +93,40 @@ export default async function AdminDashboardPage() {
   ]);
 
   const statCards = [
-    { 
-      title: 'Total Lomba', 
-      value: stats.lomba, 
-      icon: Trophy, 
+    {
+      title: 'Total Lomba',
+      value: stats.lomba,
+      icon: Trophy,
       color: 'bg-blue-500',
-      href: '/admin/lomba' 
+      href: '/admin/lomba'
     },
-    { 
-      title: 'Total Expo', 
-      value: stats.expo, 
-      icon: Calendar, 
+    {
+      title: 'Total Expo',
+      value: stats.expo,
+      icon: Calendar,
       color: 'bg-purple-500',
-      href: '/admin/expo' 
+      href: '/admin/expo'
     },
-    { 
-      title: 'Total Prestasi', 
-      value: stats.prestasi, 
-      icon: Medal, 
+    {
+      title: 'Total Prestasi',
+      value: stats.prestasi,
+      icon: Medal,
       color: 'bg-green-500',
-      href: '/admin/prestasi' 
+      href: '/admin/prestasi'
     },
-    { 
-      title: 'Total Registrasi', 
-      value: stats.registrasi, 
-      icon: Users, 
+    {
+      title: 'Total Registrasi',
+      value: stats.registrasi,
+      icon: Users,
       color: 'bg-orange-500',
-      href: '/admin/registrasi' 
+      href: '/admin/registrasi'
     },
-    { 
-      title: 'Pesan Belum Dibaca', 
-      value: stats.unreadMessages, 
-      icon: MessageSquare, 
+    {
+      title: 'Pesan Belum Dibaca',
+      value: stats.unreadMessages,
+      icon: MessageSquare,
       color: 'bg-pink-500',
-      href: '/admin/messages' 
+      href: '/admin/messages'
     },
   ];
 
@@ -145,8 +160,8 @@ export default async function AdminDashboardPage() {
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Link 
-              key={stat.title} 
+            <Link
+              key={stat.title}
               href={stat.href}
               className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow"
             >
@@ -180,7 +195,7 @@ export default async function AdminDashboardPage() {
             </div>
             <div className="ml-auto flex gap-2">
               {pending.prestasi > 0 && (
-                <Link 
+                <Link
                   href="/admin/prestasi?status=pending"
                   className="px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 transition-colors"
                 >
@@ -188,7 +203,7 @@ export default async function AdminDashboardPage() {
                 </Link>
               )}
               {pending.registrasi > 0 && (
-                <Link 
+                <Link
                   href="/admin/registrasi?status=pending"
                   className="px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 transition-colors"
                 >
@@ -206,7 +221,7 @@ export default async function AdminDashboardPage() {
         <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
           <h2 className="text-lg font-semibold text-slate-800 mb-4">Quick Actions</h2>
           <div className="space-y-3">
-            <Link 
+            <Link
               href="/admin/lomba/create"
               className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
             >
@@ -216,7 +231,7 @@ export default async function AdminDashboardPage() {
               </div>
               <ArrowUpRight size={16} className="text-slate-400" />
             </Link>
-            <Link 
+            <Link
               href="/admin/expo/create"
               className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
             >
@@ -226,7 +241,7 @@ export default async function AdminDashboardPage() {
               </div>
               <ArrowUpRight size={16} className="text-slate-400" />
             </Link>
-            <Link 
+            <Link
               href="/admin/prestasi?status=pending"
               className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
             >
@@ -247,7 +262,7 @@ export default async function AdminDashboardPage() {
               Lihat Semua
             </Link>
           </div>
-          
+
           {recentPrestasi.length === 0 ? (
             <p className="text-slate-500 text-center py-8">Belum ada prestasi terdaftar</p>
           ) : (
