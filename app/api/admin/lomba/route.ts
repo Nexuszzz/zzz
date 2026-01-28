@@ -15,11 +15,9 @@ export async function GET(request: NextRequest) {
     const kategori = searchParams.get('kategori');
     const includeDeleted = searchParams.get('includeDeleted') === 'true';
 
-    // Build filter
+    // Build filter - NOTE: is_deleted field doesn't exist in current schema, removed filter
     const filter: Record<string, unknown> = {};
-    if (!includeDeleted) {
-      filter.is_deleted = { _eq: false };
-    }
+    // Removed is_deleted filter as field doesn't exist in Directus schema
     if (status) filter.status = { _eq: status };
     if (kategori) filter.kategori = { _eq: kategori };
     if (search) {
@@ -34,8 +32,8 @@ export async function GET(request: NextRequest) {
     params.set('limit', limit.toString());
     params.set('offset', ((page - 1) * limit).toString());
     params.set('sort', '-date_created');
-    params.set('meta', 'total_count,filter_count');
-    params.set('fields', 'id,nama_lomba,slug,kategori,tingkat,penyelenggara,deadline_pendaftaran,tanggal_pelaksanaan,status,is_featured,date_created,poster,is_deleted');
+    // Use correct field names that match Directus schema
+    params.set('fields', 'id,nama_lomba,slug,kategori,tingkat,penyelenggara,deadline,tanggal_pelaksanaan,status,is_featured,date_created,poster');
 
     if (Object.keys(filter).length > 0) {
       params.set('filter', JSON.stringify(filter));
@@ -77,7 +75,10 @@ export async function GET(request: NextRequest) {
 
     const result = await response.json();
 
-    // Transform data
+    // Use public Directus URL for asset URLs (browser accessible)
+    const publicDirectusUrl = process.env.NEXT_PUBLIC_DIRECTUS_URL || DIRECTUS_URL;
+
+    // Transform data - use correct field names from Directus schema
     const data = result.data.map((item: Record<string, unknown>) => ({
       id: item.id,
       namaLomba: item.nama_lomba,
@@ -85,22 +86,21 @@ export async function GET(request: NextRequest) {
       kategori: item.kategori,
       tingkat: item.tingkat,
       penyelenggara: item.penyelenggara,
-      deadline: item.deadline_pendaftaran,
+      deadline: item.deadline, // Use 'deadline' not 'deadline_pendaftaran'
       tanggalPelaksanaan: item.tanggal_pelaksanaan,
       status: item.status,
       isFeatured: item.is_featured,
-      isDeleted: item.is_deleted,
       dateCreated: item.date_created,
-      posterUrl: item.poster ? `${DIRECTUS_URL}/assets/${item.poster}?width=100` : null,
+      posterUrl: item.poster ? `${publicDirectusUrl}/assets/${item.poster}?width=100` : null,
     }));
 
     return NextResponse.json({
       data,
       meta: {
-        total: result.meta?.filter_count || result.meta?.total_count || 0,
+        total: result.meta?.filter_count || result.meta?.total_count || result.data?.length || 0,
         page,
         limit,
-        totalPages: Math.ceil((result.meta?.filter_count || result.meta?.total_count || 0) / limit),
+        totalPages: Math.ceil((result.meta?.filter_count || result.meta?.total_count || result.data?.length || 0) / limit),
       },
     });
   } catch (error) {

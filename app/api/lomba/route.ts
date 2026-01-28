@@ -10,7 +10,7 @@ const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    
+
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '12');
     const kategori = searchParams.get('kategori');
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     // Build filter
     const filter: Record<string, unknown> = {};
-    
+
     if (slug) {
       // Direct slug lookup for detail page
       filter.slug = { _eq: slug };
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       ? 'id,nama_lomba,slug,deadline,kategori,tingkat,status,poster,biaya,lokasi,is_featured,is_urgent,tags,deskripsi,penyelenggara,peserta_info,hadiah_info,syarat_info,timeline_info,kontak_email,kontak_phone,kontak_website,link_pendaftaran'
       : 'id,nama_lomba,slug,deadline,kategori,tingkat,status,poster,biaya,lokasi,is_featured,is_urgent,tags';
     params.set('fields', fields);
-    
+
     if (Object.keys(filter).length > 0) {
       params.set('filter', JSON.stringify(filter));
     }
@@ -64,7 +64,10 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await response.json();
-    
+
+    // Use public Directus URL for asset URLs (browser accessible)
+    const publicDirectusUrl = process.env.NEXT_PUBLIC_DIRECTUS_URL || DIRECTUS_URL;
+
     // Transform data for frontend
     const data = result.data.map((item: Record<string, unknown>) => ({
       id: String(item.id),
@@ -77,7 +80,7 @@ export async function GET(request: NextRequest) {
       status: item.status || 'open',
       isUrgent: item.is_urgent,
       isFree: item.biaya === 0,
-      posterUrl: item.poster ? `${DIRECTUS_URL}/assets/${item.poster}?width=400` : null,
+      posterUrl: item.poster ? `${publicDirectusUrl}/assets/${item.poster}?width=400` : null,
       // Detail fields (only present when querying by slug)
       deskripsi: item.deskripsi || '',
       penyelenggara: item.penyelenggara || '',
