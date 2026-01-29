@@ -21,46 +21,39 @@ import {
   Star
 } from 'lucide-react';
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 const filterTags = ['Online', 'Gratis', 'Nasional'];
 
-// Fetch functions
+// Fetch functions - using internal APIs
 async function getLomba() {
   try {
-    const params = new URLSearchParams();
-    params.set('limit', '4');
-    params.set('sort', '-is_urgent,-date_created');
-    // Remove strict status filter - allow all non-closed statuses or just fetch all
-    params.set('fields', 'id,nama_lomba,slug,deadline,kategori,tingkat,status,biaya,is_urgent,is_featured');
-
-    const url = `${DIRECTUS_URL}/items/apm_lomba?${params.toString()}`;
-    console.log('Fetching lomba from:', url);
-
-    const res = await fetch(url, {
+    const res = await fetch(`${BASE_URL}/api/lomba?limit=4&featured=true`, {
       next: { revalidate: 60 },
     });
 
     if (!res.ok) {
-      console.error(`Failed to fetch lomba: ${res.status} from ${url}`);
+      console.error(`Failed to fetch lomba: ${res.status}`);
       return [];
     }
     const data = await res.json();
-    console.log(`Fetched ${data.data?.length || 0} lomba items`);
 
     return (data.data || []).map((item: Record<string, unknown>) => ({
       id: String(item.id),
       slug: item.slug,
-      title: item.nama_lomba,
+      title: item.title || item.nama_lomba,
       deadline: item.deadline,
       deadlineDisplay: item.deadline
         ? new Date(item.deadline as string).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
         : null,
-      kategori: String(item.kategori || '').charAt(0).toUpperCase() + String(item.kategori || '').slice(1),
-      tingkat: String(item.tingkat || '').charAt(0).toUpperCase() + String(item.tingkat || '').slice(1),
+      kategori: item.kategori,
+      tingkat: item.tingkat,
       status: item.status || 'open',
-      isUrgent: item.is_urgent,
-      isFree: item.biaya === 0,
+      isUrgent: item.isUrgent,
+      isFree: item.isFree,
     }));
   } catch (error) {
     console.error('Error fetching lomba:', error);
@@ -70,34 +63,24 @@ async function getLomba() {
 
 async function getPrestasi() {
   try {
-    const params = new URLSearchParams();
-    params.set('limit', '3');
-    params.set('sort', '-date_created');
-    // Relaxed filter - show all prestasi for now (status_verifikasi can be verified later)
-    params.set('fields', 'id,judul,slug,nama_lomba,peringkat,tingkat,tahun,kategori,verified_at,status_verifikasi');
-
-    const url = `${DIRECTUS_URL}/items/apm_prestasi?${params.toString()}`;
-    console.log('Fetching prestasi from:', url);
-
-    const res = await fetch(url, {
+    const res = await fetch(`${BASE_URL}/api/prestasi?limit=3`, {
       next: { revalidate: 60 },
     });
 
     if (!res.ok) {
-      console.error(`Failed to fetch prestasi: ${res.status} from ${url}`);
+      console.error(`Failed to fetch prestasi: ${res.status}`);
       return [];
     }
     const data = await res.json();
-    console.log(`Fetched ${data.data?.length || 0} prestasi items`);
 
     return (data.data || []).map((item: Record<string, unknown>) => ({
       id: String(item.id),
       slug: item.slug,
-      title: item.nama_lomba,
+      title: item.namaLomba || item.title,
       peringkat: item.peringkat,
-      tingkat: String(item.tingkat || '').charAt(0).toUpperCase() + String(item.tingkat || '').slice(1),
-      tahun: String(item.tahun),
-      kategori: String(item.kategori || ''),
+      tingkat: item.tingkat,
+      tahun: item.tahun,
+      kategori: item.kategori || '',
       isVerified: true,
     }));
   } catch (error) {
@@ -108,42 +91,21 @@ async function getPrestasi() {
 
 async function getExpo() {
   try {
-    const params = new URLSearchParams();
-    params.set('limit', '3');
-    params.set('sort', '-date_created');
-    // Relaxed filter - show all expo for now
-    params.set('fields', 'id,nama_event,slug,tanggal_mulai,tanggal_selesai,lokasi,status');
-
-    const url = `${DIRECTUS_URL}/items/apm_expo?${params.toString()}`;
-    console.log('Fetching expo from:', url);
-
-    const res = await fetch(url, {
+    const res = await fetch(`${BASE_URL}/api/expo?limit=3`, {
       next: { revalidate: 60 },
     });
 
     if (!res.ok) {
-      console.error(`Failed to fetch expo: ${res.status} from ${url}`);
+      console.error(`Failed to fetch expo: ${res.status}`);
       return [];
     }
     const data = await res.json();
-    console.log(`Fetched ${data.data?.length || 0} expo items`);
-
-    const formatTanggal = (start: string, end?: string) => {
-      const startDate = new Date(start);
-      const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
-
-      if (end && end !== start) {
-        const endDate = new Date(end);
-        return `${startDate.toLocaleDateString('id-ID', { day: 'numeric' })}-${endDate.toLocaleDateString('id-ID', opts)}`;
-      }
-      return startDate.toLocaleDateString('id-ID', opts);
-    };
 
     return (data.data || []).map((item: Record<string, unknown>) => ({
       id: String(item.id),
       slug: item.slug,
-      title: item.nama_event,
-      tanggal: formatTanggal(item.tanggal_mulai as string, item.tanggal_selesai as string | undefined),
+      title: item.title || item.nama_event,
+      tanggal: item.tanggal,
       lokasi: item.lokasi,
     }));
   } catch (error) {
@@ -154,23 +116,14 @@ async function getExpo() {
 
 async function getUpcomingDeadline() {
   try {
-    const params = new URLSearchParams();
-    params.set('limit', '1');
-    params.set('sort', 'deadline');
-    params.set('filter', JSON.stringify({
-      status: { _eq: 'open' },
-      deadline: { _gte: new Date().toISOString() }
-    }));
-    params.set('fields', 'deadline');
-
-    const res = await fetch(`${DIRECTUS_URL}/items/apm_lomba?${params.toString()}`, {
+    const res = await fetch(`${BASE_URL}/api/lomba?limit=1&status=open`, {
       next: { revalidate: 60 },
     });
 
     if (!res.ok) return null;
     const data = await res.json();
 
-    if (data.data && data.data.length > 0) {
+    if (data.data && data.data.length > 0 && data.data[0].deadline) {
       return data.data[0].deadline;
     }
     return null;

@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Users
 } from 'lucide-react';
+import { BackButton } from '@/components/admin/BackButton';
 
 interface Lomba {
   id: number;
@@ -145,6 +146,9 @@ export default function AdminLombaPage() {
 
   return (
     <div className="space-y-6">
+      {/* Back to Dashboard */}
+      <BackButton />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -37,7 +37,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_messages/${messageId}`, {
+    const response = await fetch(`${DIRECTUS_URL}/items/messages/${messageId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
@@ -75,7 +75,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     if (permanent) {
       // Permanent delete
-      const response = await fetch(`${DIRECTUS_URL}/items/apm_messages/${messageId}`, {
+      const response = await fetch(`${DIRECTUS_URL}/items/messages/${messageId}`, {
         method: 'DELETE',
       });
 
@@ -88,7 +88,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       }
     } else {
       // Soft delete
-      const response = await fetch(`${DIRECTUS_URL}/items/apm_messages/${messageId}`, {
+      const response = await fetch(`${DIRECTUS_URL}/items/messages/${messageId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_deleted: true }),
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   try {
     const response = await fetch(
-      `${DIRECTUS_URL}/items/apm_messages/${messageId}?fields=id,nama,email,subjek,pesan,phone,status,date_created`
+      `${DIRECTUS_URL}/items/messages/${messageId}?fields=id,nama,email,subjek,pesan,phone,status,date_created`
     );
 
     if (!response.ok) {

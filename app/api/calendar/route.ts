@@ -1,202 +1,238 @@
 /**
- * API Route: Calendar Events
- * GET /api/calendar
+ * Public Calendar API
  * 
- * Fetches calendar events from multiple sources:
- * - apm_lomba (deadlines)
- * - apm_expo (event dates)
- * - apm_calendar (personal/custom entries)
+ * GET /api/calendar - Get public calendar events from all sources
+ * 
+ * Aggregates events from:
+ * - CalendarEvent table (manual events)
+ * - Lomba deadlines
+ * - Expo dates
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
+import { NextRequest } from 'next/server'
+import { prisma } from '@/lib/prisma/client'
+import {
+  successResponse,
+  errorResponse,
+  parseSearchParams,
+} from '@/lib/api/helpers'
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
-const TIMEZONE = 'Asia/Jakarta';
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
 
-interface CalendarEvent {
-  id: string;
-  title: string;
-  type: 'lomba' | 'expo' | 'deadline' | 'event';
-  startDate: string;
-  endDate?: string;
-  time?: string;
-  lokasi?: string;
-  description?: string;
-  link?: string;
-  kategori?: string;
-  isUrgent?: boolean;
+interface CalendarEventOutput {
+  id: string
+  title: string
+  type: string
+  start_date: Date
+  end_date: Date | null
+  all_day: boolean
+  link: string | null
+  color: string | null
+  source: 'calendar' | 'lomba' | 'expo'
+  source_id?: number
 }
 
+/**
+ * GET /api/calendar
+ * Get aggregated calendar events
+ */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const month = searchParams.get('month'); // Format: YYYY-MM
-    const userNim = searchParams.get('nim'); // For personal calendar entries
+    const searchParams = request.nextUrl.searchParams
+    const params = parseSearchParams(searchParams, [
+      'month', 'year', 'type', 'source', 'limit'
+    ])
 
-    const events: CalendarEvent[] = [];
+    const month = params.month ? parseInt(params.month) : null
+    const year = params.year ? parseInt(params.year) : new Date().getFullYear()
+    const typeFilter = params.type || ''
+    const sourceFilter = params.source || ''
+    const limit = params.limit ? parseInt(params.limit) : 200
 
-    // Calculate date range for the month (with buffer for display)
-    // Use Asia/Jakarta timezone for consistent date handling
-    const now = toZonedTime(new Date(), TIMEZONE);
-    let startDate = new Date(now);
-    let endDate = new Date(now);
+    // Calculate date range
+    let startDate: Date
+    let endDate: Date
 
-    if (month) {
-      const [year, monthNum] = month.split('-').map(Number);
-      startDate = new Date(year, monthNum - 1, 1);
-      endDate = new Date(year, monthNum, 0); // Last day of month
-      // Add buffer for previous/next month display
-      startDate.setDate(startDate.getDate() - 7);
-      endDate.setDate(endDate.getDate() + 7);
+    if (month !== null) {
+      startDate = new Date(year, month - 1, 1)
+      endDate = new Date(year, month, 0, 23, 59, 59)
     } else {
-      // Default: next 3 months
-      endDate.setMonth(endDate.getMonth() + 3);
+      startDate = new Date(year, 0, 1)
+      endDate = new Date(year, 11, 31, 23, 59, 59)
     }
 
-    // Format dates for Directus query using Asia/Jakarta timezone
-    const startDateStr = formatInTimeZone(startDate, TIMEZONE, 'yyyy-MM-dd');
-    const endDateStr = formatInTimeZone(endDate, TIMEZONE, 'yyyy-MM-dd');
+    const events: CalendarEventOutput[] = []
 
-    // 1. Fetch Lomba deadlines
-    try {
-      const lombaParams = new URLSearchParams();
-      // Removed is_deleted filter as field doesn't exist in current schema
-      lombaParams.set('filter', JSON.stringify({
-        _and: [
-          { status: { _in: ['open', 'upcoming'] } },
-          { deadline: { _gte: startDateStr } },
-          { deadline: { _lte: endDateStr } },
-        ]
-      }));
-      lombaParams.set('fields', 'id,nama_lomba,slug,deadline,lokasi,kategori,tingkat');
-      lombaParams.set('sort', 'deadline');
-      lombaParams.set('limit', '50');
+    // 1. Fetch CalendarEvent entries
+    if (!sourceFilter || sourceFilter === 'calendar') {
+      const calendarEvents = await prisma.calendarEvent.findMany({
+        where: {
+          is_active: true,
+          OR: [
+            {
+              start_date: { gte: startDate, lte: endDate },
+            },
+            {
+              AND: [
+                { start_date: { lte: endDate } },
+                { end_date: { gte: startDate } },
+              ],
+            },
+          ],
+          ...(typeFilter ? { type: typeFilter } : {}),
+        },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          start_date: true,
+          end_date: true,
+          all_day: true,
+          link: true,
+          color: true,
+        },
+      })
 
-      const lombaUrl = `${DIRECTUS_URL}/items/apm_lomba?${lombaParams.toString()}`;
-      console.log('Fetching lomba for calendar:', lombaUrl);
-
-      const lombaRes = await fetch(lombaUrl);
-
-      if (lombaRes.ok) {
-        const lombaData = await lombaRes.json();
-
-        (lombaData.data || []).forEach((lomba: Record<string, unknown>) => {
-          const deadline = new Date(lomba.deadline as string);
-          const daysUntil = Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-
-          events.push({
-            id: `lomba-${lomba.id}`,
-            title: lomba.nama_lomba as string,
-            type: 'deadline',
-            startDate: (lomba.deadline as string).split('T')[0],
-            time: '23:59',
-            lokasi: (lomba.lokasi as string) || 'Online',
-            description: `Deadline pendaftaran ${lomba.nama_lomba}`,
-            link: `/lomba/${lomba.slug}`,
-            kategori: lomba.kategori as string,
-            isUrgent: daysUntil <= 7,
-          });
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching lomba for calendar:', error);
+      events.push(
+        ...calendarEvents.map(e => ({
+          id: `calendar-${e.id}`,
+          title: e.title,
+          type: e.type,
+          start_date: e.start_date,
+          end_date: e.end_date,
+          all_day: e.all_day,
+          link: e.link,
+          color: e.color,
+          source: 'calendar' as const,
+          source_id: e.id,
+        }))
+      )
     }
 
-    // 2. Fetch Expo events
-    try {
-      const expoParams = new URLSearchParams();
-      // Removed is_deleted filter as field doesn't exist in current schema
-      expoParams.set('filter', JSON.stringify({
-        _and: [
-          { status: { _in: ['upcoming', 'ongoing'] } },
-          { tanggal_mulai: { _gte: startDateStr } },
-          { tanggal_mulai: { _lte: endDateStr } },
-        ]
-      }));
-      expoParams.set('fields', 'id,nama_event,slug,tanggal_mulai,tanggal_selesai,lokasi,tema');
-      expoParams.set('sort', 'tanggal_mulai');
-      expoParams.set('limit', '50');
+    // 2. Fetch Lomba deadlines
+    if (!sourceFilter || sourceFilter === 'lomba') {
+      const lombas = await prisma.lomba.findMany({
+        where: {
+          status: { not: 'closed' },
+          is_deleted: false,
+          deadline: { gte: startDate, lte: endDate },
+        },
+        select: {
+          id: true,
+          nama_lomba: true,
+          slug: true,
+          deadline: true,
+          tanggal_pelaksanaan: true,
+          lokasi: true,
+          kategori: true,
+          is_urgent: true,
+        },
+      })
 
-      const expoUrl = `${DIRECTUS_URL}/items/apm_expo?${expoParams.toString()}`;
-      console.log('Fetching expo for calendar:', expoUrl);
+      events.push(
+        ...lombas.filter(l => l.deadline).map(l => ({
+          id: `lomba-deadline-${l.id}`,
+          title: `[Deadline] ${l.nama_lomba}`,
+          type: 'deadline',
+          start_date: l.deadline!,
+          end_date: null,
+          all_day: true,
+          link: `/lomba/${l.slug}`,
+          color: l.is_urgent ? '#ef4444' : '#f59e0b',
+          source: 'lomba' as const,
+          source_id: l.id,
+        }))
+      )
 
-      const expoRes = await fetch(expoUrl);
-
-      if (expoRes.ok) {
-        const expoData = await expoRes.json();
-
-        (expoData.data || []).forEach((expo: Record<string, unknown>) => {
-          events.push({
-            id: `expo-${expo.id}`,
-            title: expo.nama_event as string,
-            type: 'expo',
-            startDate: (expo.tanggal_mulai as string).split('T')[0],
-            endDate: expo.tanggal_selesai ? (expo.tanggal_selesai as string).split('T')[0] : undefined,
-            lokasi: expo.lokasi as string,
-            description: expo.tema as string,
-            link: `/expo/${expo.slug}`,
-            kategori: 'Expo',
-          });
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching expo for calendar:', error);
+      // Add pelaksanaan dates
+      events.push(
+        ...lombas.filter(l => l.tanggal_pelaksanaan).map(l => ({
+          id: `lomba-exec-${l.id}`,
+          title: l.nama_lomba,
+          type: 'lomba',
+          start_date: l.tanggal_pelaksanaan!,
+          end_date: null,
+          all_day: true,
+          link: `/lomba/${l.slug}`,
+          color: '#3b82f6',
+          source: 'lomba' as const,
+          source_id: l.id,
+        }))
+      )
     }
 
-    // 3. Fetch personal calendar entries (if user NIM provided)
-    if (userNim) {
-      try {
-        const calendarParams = new URLSearchParams();
-        // Removed is_deleted filter as field doesn't exist in current schema
-        calendarParams.set('filter', JSON.stringify({
-          _and: [
-            { user_nim: { _eq: userNim } },
-            { tanggal: { _gte: startDateStr } },
-            { tanggal: { _lte: endDateStr } },
-          ]
-        }));
-        calendarParams.set('fields', 'id,title,event_type,tanggal,lokasi,deskripsi,link');
-        calendarParams.set('sort', 'tanggal');
-        calendarParams.set('limit', '100');
+    // 3. Fetch Expo dates
+    if (!sourceFilter || sourceFilter === 'expo') {
+      const expos = await prisma.expo.findMany({
+        where: {
+          status: { not: 'cancelled' },
+          is_deleted: false,
+          OR: [
+            { tanggal_mulai: { gte: startDate, lte: endDate } },
+            {
+              AND: [
+                { tanggal_mulai: { lte: endDate } },
+                { tanggal_selesai: { gte: startDate } },
+              ],
+            },
+          ],
+        },
+        select: {
+          id: true,
+          nama_event: true,
+          slug: true,
+          tanggal_mulai: true,
+          tanggal_selesai: true,
+          lokasi: true,
+        },
+      })
 
-        const calendarRes = await fetch(`${DIRECTUS_URL}/items/apm_calendar?${calendarParams.toString()}`);
-
-        if (calendarRes.ok) {
-          const calendarData = await calendarRes.json();
-
-          (calendarData.data || []).forEach((entry: Record<string, unknown>) => {
-            events.push({
-              id: `cal-${entry.id}`,
-              title: entry.title as string,
-              type: (entry.event_type as CalendarEvent['type']) || 'event',
-              startDate: (entry.tanggal as string).split('T')[0],
-              lokasi: entry.lokasi as string,
-              description: entry.deskripsi as string,
-              link: entry.link as string,
-              isUrgent: false,
-            });
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching personal calendar:', error);
-      }
+      events.push(
+        ...expos.map(e => ({
+          id: `expo-${e.id}`,
+          title: e.nama_event,
+          type: 'expo',
+          start_date: e.tanggal_mulai,
+          end_date: e.tanggal_selesai,
+          all_day: true,
+          link: `/expo/${e.slug}`,
+          color: '#8b5cf6',
+          source: 'expo' as const,
+          source_id: e.id,
+        }))
+      )
     }
 
-    // Sort events by date
-    events.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    // Sort by start_date
+    events.sort((a, b) => a.start_date.getTime() - b.start_date.getTime())
 
-    return NextResponse.json({
-      success: true,
-      data: events,
-      total: events.length,
-    });
+    // Apply limit
+    const limitedEvents = events.slice(0, limit)
 
+    // Group by type for summary
+    const byType = limitedEvents.reduce((acc, e) => {
+      acc[e.type] = (acc[e.type] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    const bySource = limitedEvents.reduce((acc, e) => {
+      acc[e.source] = (acc[e.source] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    return successResponse({
+      year,
+      month: month || 'all',
+      total: limitedEvents.length,
+      events: limitedEvents,
+      summary: {
+        byType,
+        bySource,
+      },
+    })
   } catch (error) {
-    console.error('Error fetching calendar events:', error);
-    return NextResponse.json(
-      { error: 'Terjadi kesalahan server' },
-      { status: 500 }
-    );
+    console.error('Error fetching public calendar:', error)
+    return errorResponse('Gagal mengambil data kalender')
   }
 }

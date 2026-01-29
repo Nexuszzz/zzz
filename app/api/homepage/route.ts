@@ -1,4 +1,4 @@
-﻿/**
+/**
  * API Route: Get Homepage Data
  * GET /api/homepage
  * 
@@ -6,66 +6,91 @@
  */
 
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma/client';
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // Fetch featured lomba
-    const lombaParams = new URLSearchParams();
-    lombaParams.set('limit', '4');
-    lombaParams.set('sort', '-is_urgent,-date_created');
-    lombaParams.set('filter', JSON.stringify({ status: { _neq: 'closed' } }));
-    lombaParams.set('fields', 'id,nama_lomba,slug,deadline,kategori,tingkat,status,biaya,is_urgent,is_featured');
-
-    const lombaRes = await fetch(`${DIRECTUS_URL}/items/apm_lomba?${lombaParams.toString()}`, {
-      next: { revalidate: 60 },
+    // Fetch featured lomba (not closed, prioritize urgent ones)
+    const lombaData = await prisma.lomba.findMany({
+      where: {
+        is_deleted: false,
+        status: { not: 'closed' },
+      },
+      orderBy: [
+        { is_urgent: 'desc' },
+        { created_at: 'desc' },
+      ],
+      take: 4,
+      select: {
+        id: true,
+        nama_lomba: true,
+        slug: true,
+        deadline: true,
+        kategori: true,
+        tingkat: true,
+        status: true,
+        biaya: true,
+        is_urgent: true,
+        is_featured: true,
+      },
     });
-    const lombaData = await lombaRes.json();
 
-    // Fetch recent prestasi
-    const prestasiParams = new URLSearchParams();
-    prestasiParams.set('limit', '3');
-    prestasiParams.set('sort', '-tanggal');
-    prestasiParams.set('filter', JSON.stringify({ status_verifikasi: { _eq: 'verified' } }));
-    prestasiParams.set('fields', 'id,judul,slug,nama_lomba,peringkat,tingkat,tahun,kategori');
-
-    const prestasiRes = await fetch(`${DIRECTUS_URL}/items/apm_prestasi?${prestasiParams.toString()}`, {
-      next: { revalidate: 60 },
+    // Fetch recent verified prestasi
+    const prestasiData = await prisma.prestasi.findMany({
+      where: {
+        is_published: true,
+      },
+      orderBy: { published_at: 'desc' },
+      take: 3,
+      select: {
+        id: true,
+        slug: true,
+        nama_lomba: true,
+        peringkat: true,
+        tingkat: true,
+        tahun: true,
+        kategori: true,
+      },
     });
-    const prestasiData = await prestasiRes.json();
 
     // Fetch upcoming expo
-    const expoParams = new URLSearchParams();
-    expoParams.set('limit', '3');
-    expoParams.set('sort', 'tanggal_mulai');
-    expoParams.set('filter', JSON.stringify({ status: { _eq: 'upcoming' } }));
-    expoParams.set('fields', 'id,nama_event,slug,tanggal_mulai,tanggal_selesai,lokasi');
-
-    const expoRes = await fetch(`${DIRECTUS_URL}/items/apm_expo?${expoParams.toString()}`, {
-      next: { revalidate: 60 },
+    const expoData = await prisma.expo.findMany({
+      where: {
+        is_deleted: false,
+        status: 'upcoming',
+      },
+      orderBy: { tanggal_mulai: 'asc' },
+      take: 3,
+      select: {
+        id: true,
+        nama_event: true,
+        slug: true,
+        tanggal_mulai: true,
+        tanggal_selesai: true,
+        lokasi: true,
+      },
     });
-    const expoData = await expoRes.json();
 
     // Transform data
-    const formatTanggal = (start: string, end?: string) => {
-      const startDate = new Date(start);
+    const formatTanggal = (start: Date | null, end?: Date | null) => {
+      if (!start) return '-';
       const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
       
-      if (end && end !== start) {
-        const endDate = new Date(end);
-        return `${startDate.toLocaleDateString('id-ID', { day: 'numeric' })}-${endDate.toLocaleDateString('id-ID', opts)}`;
+      if (end && end.getTime() !== start.getTime()) {
+        return `${start.toLocaleDateString('id-ID', { day: 'numeric' })}-${end.toLocaleDateString('id-ID', opts)}`;
       }
-      return startDate.toLocaleDateString('id-ID', opts);
+      return start.toLocaleDateString('id-ID', opts);
     };
 
-    const lomba = (lombaData.data || []).map((item: Record<string, unknown>) => ({
+    const lomba = lombaData.map((item) => ({
       id: String(item.id),
       slug: item.slug,
       title: item.nama_lomba,
-      deadline: item.deadline,
+      deadline: item.deadline?.toISOString() || null,
       deadlineDisplay: item.deadline 
-        ? new Date(item.deadline as string).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) 
+        ? item.deadline.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) 
         : null,
       kategori: String(item.kategori || '').charAt(0).toUpperCase() + String(item.kategori || '').slice(1),
       tingkat: String(item.tingkat || '').charAt(0).toUpperCase() + String(item.tingkat || '').slice(1),
@@ -74,7 +99,7 @@ export async function GET() {
       isFree: item.biaya === 0,
     }));
 
-    const prestasi = (prestasiData.data || []).map((item: Record<string, unknown>) => ({
+    const prestasi = prestasiData.map((item) => ({
       id: String(item.id),
       slug: item.slug,
       title: item.nama_lomba,
@@ -85,11 +110,11 @@ export async function GET() {
       isVerified: true,
     }));
 
-    const expo = (expoData.data || []).map((item: Record<string, unknown>) => ({
+    const expo = expoData.map((item) => ({
       id: String(item.id),
       slug: item.slug,
       title: item.nama_event,
-      tanggal: formatTanggal(item.tanggal_mulai as string, item.tanggal_selesai as string | undefined),
+      tanggal: formatTanggal(item.tanggal_mulai, item.tanggal_selesai),
       lokasi: item.lokasi,
     }));
 

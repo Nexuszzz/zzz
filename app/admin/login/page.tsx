@@ -33,8 +33,9 @@ export default function AdminLoginPage() {
         throw new Error(data.error || 'Login gagal');
       }
 
-      router.push('/admin');
-      router.refresh();
+      // Successful login - redirect to dashboard
+      // Use window.location for hard redirect to ensure cookies are set
+      window.location.href = '/admin';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Terjadi kesalahan');
     } finally {

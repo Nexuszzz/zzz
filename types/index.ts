@@ -1,19 +1,132 @@
-// Re-export types dari lib/directus
-export type {
-  Lomba,
-  Prestasi,
-  PrestasiTim,
-  PrestasiPembimbing,
-  Expo,
-  Submission,
-  Resource,
-  About,
-  Tim,
-  Faq,
-  DirectusSchema,
-} from '@/lib/directus';
+// ============================================
+// Core Types (Previously from Directus, now standalone)
+// ============================================
 
+export interface Lomba {
+  id: number
+  nama_lomba: string
+  slug: string
+  deskripsi?: string
+  deadline?: string
+  kategori: string
+  tingkat: 'regional' | 'nasional' | 'internasional'
+  status: 'draft' | 'open' | 'closed'
+  link_pendaftaran?: string
+  syarat_ketentuan?: string
+  hadiah?: string
+  kontak_panitia?: string
+  poster?: string
+  biaya: number
+  lokasi?: string
+  tanggal_pelaksanaan?: string
+  penyelenggara?: string
+  tags?: string[]
+  is_featured: boolean
+  is_urgent: boolean
+  is_deleted: boolean
+  created_at?: string
+}
+
+export interface Prestasi {
+  id: number
+  judul: string
+  slug: string
+  nama_lomba?: string
+  peringkat: string
+  tingkat: 'regional' | 'nasional' | 'internasional'
+  kategori?: string
+  tanggal?: string
+  tahun: number
+  deskripsi?: string
+  thumbnail?: string
+  sertifikat?: string
+  link_berita?: string
+  link_portofolio?: string
+  is_featured: boolean
+  is_published: boolean
+}
+
+export interface PrestasiTim {
+  id: number
+  nama: string
+  nim: string
+  prodi?: string
+  angkatan?: string
+  whatsapp?: string
+  is_ketua: boolean
+}
+
+export interface PrestasiPembimbing {
+  id: number
+  nama: string
+  nidn?: string
+  whatsapp?: string
+}
+
+export interface Expo {
+  id: number
+  nama_event: string
+  slug: string
+  tema?: string
+  tanggal_mulai: string
+  tanggal_selesai: string
+  lokasi: string
+  alamat_lengkap?: string
+  deskripsi?: string
+  poster?: string
+  highlights?: unknown[]
+  rundown?: unknown[]
+  galeri?: unknown[]
+  biaya_partisipasi: number
+  benefit?: string
+  link_pendaftaran?: string
+  website_resmi?: string
+  is_featured: boolean
+  status: 'upcoming' | 'ongoing' | 'completed'
+}
+
+// CMS Types (still from Directus for FAQ, Tips, etc.)
+export interface Resource {
+  id: number
+  judul: string
+  slug: string
+  deskripsi?: string
+  kategori: string
+  thumbnail?: string
+  file_attachment?: string
+}
+
+export interface About {
+  id: number
+  tentang_kami?: string
+  visi?: string
+  misi?: string
+  alamat?: string
+  email?: string
+  telepon?: string
+}
+
+export interface Tim {
+  id: number
+  nama: string
+  jabatan: string
+  foto?: string
+  divisi: string
+  periode: string
+  is_active: boolean
+}
+
+export interface Faq {
+  id: number
+  pertanyaan: string
+  jawaban: string
+  kategori: string
+  urutan: number
+}
+
+// ============================================
 // Additional Types
+// ============================================
 
 // Navigation
 export interface NavItem {
@@ -188,11 +301,9 @@ export interface UploadedFile {
 }
 
 // Success Story
-import type { Prestasi as DirectusPrestasi } from '@/lib/directus';
-
 export interface SuccessStory {
   id: string;
-  prestasi: DirectusPrestasi;
+  prestasi: Prestasi;
   interview: string;
   tips: string[];
   featured_image: string;

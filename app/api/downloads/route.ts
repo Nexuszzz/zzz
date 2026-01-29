@@ -7,6 +7,9 @@ import { NextResponse } from 'next/server';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 const staticDownloads = [
     {
         id: '1',
@@ -62,7 +65,7 @@ export async function GET() {
         params.set('filter', JSON.stringify({ status: { _eq: 'published' } }));
         params.set('fields', 'id,judul,deskripsi,format,ukuran,kategori,file');
 
-        const response = await fetch(`${DIRECTUS_URL}/items/apm_downloads?${params.toString()}`, {
+        const response = await fetch(`${DIRECTUS_URL}/items/resources?${params.toString()}`, {
             next: { revalidate: 60 },
         });
 

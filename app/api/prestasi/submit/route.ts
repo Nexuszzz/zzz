@@ -1,181 +1,252 @@
 ﻿/**
- * API Route: Submit Prestasi
- * POST /api/prestasi/submit
+ * Public Prestasi Submission API
+ * 
+ * POST /api/prestasi/submit - Submit a new prestasi
+ * GET  /api/prestasi/submit - Check submission status
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server'
+import { prisma } from '@/lib/prisma/client'
+import { TeamMemberInput, PembimbingInput } from '@/lib/validations/prestasi'
+import {
+  createdResponse,
+  errorResponse,
+  notFoundResponse,
+  successResponse,
+} from '@/lib/api/helpers'
+import { submissionRateLimiter, getClientIP } from '@/lib/rate-limit'
+import { writeFile, mkdir } from 'fs/promises'
+import { existsSync } from 'fs'
+import path from 'path'
+import { v4 as uuidv4 } from 'uuid'
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
-
+/**
+ * POST /api/prestasi/submit
+ * Submit a new prestasi (handles FormData)
+ */
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
+    // Rate limiting by IP
+    const ip = getClientIP(request)
+    const rateLimitResult = submissionRateLimiter.check(ip)
+    if (!rateLimitResult.success) {
+      return errorResponse(
+        'Terlalu banyak permintaan. Silakan coba lagi dalam beberapa menit.',
+        429
+      )
+    }
 
-    // Extract form fields
-    const judul = formData.get('judul') as string;
-    const namaLomba = formData.get('nama_lomba') as string;
-    const penyelenggara = formData.get('penyelenggara') as string;
-    const tingkat = formData.get('tingkat') as string;
-    const peringkat = formData.get('peringkat') as string;
-    const tanggal = formData.get('tanggal') as string;
-    const kategori = formData.get('kategori') as string;
-    const deskripsi = formData.get('deskripsi') as string;
-    const submitterName = formData.get('submitter_name') as string;
-    const submitterNim = formData.get('submitter_nim') as string;
-    const submitterEmail = formData.get('submitter_email') as string;
-    const sertifikat = formData.get('sertifikat') as File | null;
-    const timData = formData.get('tim') as string;
-
-    // Validation
-    const errors: Record<string, string> = {};
-
-    // File validation
-    if (sertifikat) {
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-
-      if (sertifikat.size > maxSize) {
-        errors.sertifikat = 'Ukuran file maksimal 5MB';
+    const contentType = request.headers.get('content-type') || ''
+    
+    let data: Record<string, unknown>
+    let sertifikatPath: string | null = null
+    let suratPath: string | null = null
+    const dokumentasiPaths: string[] = []
+    
+    // Handle FormData (multipart/form-data)
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData()
+      
+      data = {
+        judul: formData.get('judul') as string || formData.get('nama_lomba') as string,
+        nama_lomba: formData.get('nama_lomba') as string,
+        penyelenggara: formData.get('penyelenggara') as string || null,
+        tingkat: (formData.get('tingkat') as string || 'nasional').toLowerCase(),
+        peringkat: (formData.get('peringkat') as string || 'lainnya').toLowerCase().replace(/-/g, '_'),
+        tanggal: formData.get('tanggal') as string || null,
+        kategori: formData.get('kategori') as string || null,
+        deskripsi: formData.get('deskripsi') as string || null,
+        submitter_name: formData.get('submitter_name') as string,
+        submitter_nim: formData.get('submitter_nim') as string,
+        submitter_email: formData.get('submitter_email') as string,
+        submitter_whatsapp: formData.get('submitter_whatsapp') as string || '-',
       }
-      if (!allowedTypes.includes(sertifikat.type)) {
-        errors.sertifikat = 'Hanya file PDF, JPG, atau PNG yang diperbolehkan';
-      }
-    }
-
-    if (!judul?.trim()) errors.judul = 'Nama prestasi wajib diisi';
-    if (!namaLomba?.trim()) errors.nama_lomba = 'Nama lomba/kompetisi wajib diisi';
-    if (!tingkat) errors.tingkat = 'Tingkat wajib dipilih';
-    if (!peringkat?.trim()) errors.peringkat = 'Peringkat wajib diisi';
-    if (!tanggal) errors.tanggal = 'Tanggal wajib diisi';
-    if (!kategori) errors.kategori = 'Kategori wajib dipilih';
-    if (!submitterName?.trim()) errors.submitter_name = 'Nama pengisi wajib diisi';
-    if (!submitterNim?.trim()) errors.submitter_nim = 'NIM wajib diisi';
-    if (!submitterEmail?.trim()) errors.submitter_email = 'Email wajib diisi';
-    if (!sertifikat) errors.sertifikat = 'Sertifikat wajib diupload';
-
-    // Email validation
-    if (submitterEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(submitterEmail)) {
-      errors.submitter_email = 'Format email tidak valid';
-    }
-
-    // NIM validation (numbers only)
-    if (submitterNim && !/^\d+$/.test(submitterNim)) {
-      errors.submitter_nim = 'NIM harus berupa angka';
-    }
-
-    if (Object.keys(errors).length > 0) {
-      return NextResponse.json({ errors }, { status: 400 });
-    }
-
-    // Upload sertifikat to Directus
-    let sertifikatId: string | null = null;
-    if (sertifikat) {
-      const fileFormData = new FormData();
-      fileFormData.append('file', sertifikat);
-
-      const uploadResponse = await fetch(`${DIRECTUS_URL}/files`, {
-        method: 'POST',
-        body: fileFormData,
-      });
-
-      if (!uploadResponse.ok) {
-        console.error('File upload failed:', await uploadResponse.text());
-        return NextResponse.json(
-          { error: 'Gagal mengupload sertifikat' },
-          { status: 500 }
-        );
-      }
-
-      const uploadResult = await uploadResponse.json();
-      sertifikatId = uploadResult.data.id;
-    }
-
-    // Generate slug
-    const slug = judul
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim() + '-' + Date.now();
-
-    // Create prestasi record
-    const prestasiData = {
-      judul,
-      slug,
-      nama_lomba: namaLomba,
-      penyelenggara: penyelenggara || null,
-      peringkat,
-      tingkat,
-      kategori: kategori || null,
-      tanggal,
-      tahun: new Date(tanggal).getFullYear(),
-      deskripsi: deskripsi || null,
-      sertifikat: sertifikatId,
-      status: 'pending',
-      submitter_name: submitterName,
-      submitter_nim: submitterNim,
-      submitter_email: submitterEmail,
-      is_deleted: false,
-    };
-
-    const createResponse = await fetch(`${DIRECTUS_URL}/items/apm_prestasi`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(prestasiData),
-    });
-
-    if (!createResponse.ok) {
-      console.error('Create prestasi failed:', await createResponse.text());
-      return NextResponse.json(
-        { error: 'Gagal menyimpan data prestasi' },
-        { status: 500 }
-      );
-    }
-
-    const createResult = await createResponse.json();
-    const prestasiId = createResult.data.id;
-
-    // Create tim members
-    if (timData) {
-      try {
-        const tim = JSON.parse(timData) as Array<{
-          nama: string;
-          nim: string;
-          role: string;
-          angkatan?: string;
-        }>;
-
-        for (const member of tim) {
-          if (member.nama && member.nim) {
-            await fetch(`${DIRECTUS_URL}/items/apm_prestasi_tim`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                prestasi_id: prestasiId,
-                nama_mahasiswa: member.nama,
-                nim: member.nim,
-                is_ketua: member.role === 'ketua',
-              }),
-            });
-          }
+      
+      // Parse team members if provided
+      const timJson = formData.get('tim') as string
+      if (timJson) {
+        try {
+          const tim = JSON.parse(timJson)
+          data.team_members = tim.map((m: { nama: string; nim: string; role?: string }, idx: number) => ({
+            nama: m.nama,
+            nim: m.nim,
+            is_ketua: idx === 0 || m.role === 'ketua',
+          }))
+        } catch {
+          // Ignore parse errors
         }
-      } catch (e) {
-        console.error('Failed to create tim members:', e);
       }
+      
+      // Handle file uploads
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'prestasi')
+      if (!existsSync(uploadsDir)) {
+        await mkdir(uploadsDir, { recursive: true })
+      }
+      
+      const sertifikat = formData.get('sertifikat') as File | null
+      if (sertifikat && sertifikat.size > 0) {
+        const ext = sertifikat.name.split('.').pop()
+        const fileName = `sertifikat-${uuidv4()}.${ext}`
+        const filePath = path.join(uploadsDir, fileName)
+        const bytes = await sertifikat.arrayBuffer()
+        await writeFile(filePath, Buffer.from(bytes))
+        sertifikatPath = `/uploads/prestasi/${fileName}`
+      }
+      
+      const suratKeterangan = formData.get('suratKeterangan') as File | null
+      if (suratKeterangan && suratKeterangan.size > 0) {
+        const ext = suratKeterangan.name.split('.').pop()
+        const fileName = `surat-${uuidv4()}.${ext}`
+        const filePath = path.join(uploadsDir, fileName)
+        const bytes = await suratKeterangan.arrayBuffer()
+        await writeFile(filePath, Buffer.from(bytes))
+        suratPath = `/uploads/prestasi/${fileName}`
+      }
+      
+      // Handle dokumentasi files
+      for (let i = 0; i < 10; i++) {
+        const dok = formData.get(`dokumentasi_${i}`) as File | null
+        if (dok && dok.size > 0) {
+          const ext = dok.name.split('.').pop()
+          const fileName = `dok-${uuidv4()}.${ext}`
+          const filePath = path.join(uploadsDir, fileName)
+          const bytes = await dok.arrayBuffer()
+          await writeFile(filePath, Buffer.from(bytes))
+          dokumentasiPaths.push(`/uploads/prestasi/${fileName}`)
+        }
+      }
+    } else {
+      // Handle JSON
+      data = await request.json()
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Prestasi berhasil disubmit! Akan diverifikasi oleh pengurus.',
-      data: { id: prestasiId },
-    });
+    // Validate required fields
+    if (!data.judul || !data.nama_lomba || !data.submitter_name || !data.submitter_nim) {
+      return errorResponse('Data tidak lengkap. Pastikan semua field wajib terisi.', 400)
+    }
 
+    // Check for duplicate submission (same title + submitter)
+    const existingSubmission = await prisma.prestasiSubmission.findFirst({
+      where: {
+        judul: { equals: data.judul as string, mode: 'insensitive' },
+        submitter_nim: data.submitter_nim as string,
+      },
+    })
+
+    if (existingSubmission) {
+      return errorResponse(
+        'Anda sudah pernah mengajukan prestasi dengan judul yang sama',
+        409
+      )
+    }
+
+    // Create submission with relations
+    const submission = await prisma.prestasiSubmission.create({
+      data: {
+        judul: data.judul as string,
+        nama_lomba: data.nama_lomba as string,
+        penyelenggara: (data.penyelenggara as string) || null,
+        tingkat: (data.tingkat as string) || 'nasional',
+        peringkat: (data.peringkat as string) || 'lainnya',
+        tanggal: data.tanggal ? new Date(data.tanggal as string) : null,
+        kategori: (data.kategori as string) || null,
+        deskripsi: (data.deskripsi as string) || null,
+        submitter_name: data.submitter_name as string,
+        submitter_nim: data.submitter_nim as string,
+        submitter_email: (data.submitter_email as string) || '',
+        submitter_whatsapp: (data.submitter_whatsapp as string) || '-',
+        status: 'pending',
+        team_members: data.team_members && Array.isArray(data.team_members) && (data.team_members as TeamMemberInput[]).length > 0 ? {
+          create: (data.team_members as TeamMemberInput[]).map((member: TeamMemberInput) => ({
+            nama: member.nama,
+            nim: member.nim,
+            prodi: member.prodi || null,
+            angkatan: member.angkatan || null,
+            whatsapp: member.whatsapp || null,
+            is_ketua: member.is_ketua || false,
+          })),
+        } : undefined,
+        pembimbing: data.pembimbing && Array.isArray(data.pembimbing) && (data.pembimbing as PembimbingInput[]).length > 0 ? {
+          create: (data.pembimbing as PembimbingInput[]).map((p: PembimbingInput) => ({
+            nama: p.nama,
+            nidn: p.nidn || null,
+            whatsapp: p.whatsapp || null,
+          })),
+        } : undefined,
+        documents: sertifikatPath ? {
+          create: [
+            { type: 'sertifikat', file_path: sertifikatPath, file_name: 'Sertifikat', file_type: 'application/pdf', file_size: 0 },
+            ...(suratPath ? [{ type: 'surat_tugas', file_path: suratPath, file_name: 'Surat Keterangan', file_type: 'application/pdf', file_size: 0 }] : []),
+            ...dokumentasiPaths.map((p, i) => ({ type: 'dokumentasi', file_path: p, file_name: `Dokumentasi ${i+1}`, file_type: 'image/jpeg', file_size: 0 })),
+          ],
+        } : undefined,
+      },
+      include: {
+        team_members: true,
+        pembimbing: true,
+        documents: true,
+      },
+    })
+
+    return createdResponse({
+      id: submission.id,
+      judul: submission.judul,
+      status: submission.status,
+      created_at: submission.created_at,
+    }, 'Prestasi berhasil diajukan! Silakan tunggu review dari admin.')
   } catch (error) {
-    console.error('Error submitting prestasi:', error);
-    return NextResponse.json(
-      { error: 'Terjadi kesalahan server' },
-      { status: 500 }
-    );
+    console.error('Error submitting prestasi:', error)
+    return errorResponse('Gagal mengajukan prestasi. Silakan coba lagi.')
+  }
+}
+
+/**
+ * GET /api/prestasi/submit
+ * Check submission status by email/nim
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const email = searchParams.get('email')
+    const nim = searchParams.get('nim')
+
+    if (!email && !nim) {
+      return errorResponse('Email atau NIM diperlukan untuk cek status', 400)
+    }
+
+    // Build where clause
+    const orConditions: Array<{ submitter_email?: string; submitter_nim?: string }> = []
+    if (email) orConditions.push({ submitter_email: email })
+    if (nim) orConditions.push({ submitter_nim: nim })
+
+    // Find submissions
+    const submissions = await prisma.prestasiSubmission.findMany({
+      where: { OR: orConditions },
+      select: {
+        id: true,
+        judul: true,
+        nama_lomba: true,
+        tingkat: true,
+        peringkat: true,
+        status: true,
+        reviewer_notes: true,
+        created_at: true,
+        updated_at: true,
+      },
+      orderBy: { created_at: 'desc' },
+    })
+
+    if (submissions.length === 0) {
+      return notFoundResponse('Tidak ada submission ditemukan')
+    }
+
+    return successResponse({
+      count: submissions.length,
+      submissions,
+    })
+  } catch (error) {
+    console.error('Error checking prestasi submission:', error)
+    return errorResponse('Gagal mengecek status submission')
   }
 }
 

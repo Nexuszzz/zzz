@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 const staticPanduan = {
     pendaftaran: [
         { step: 1, title: 'Cari Lomba', description: 'Jelajahi daftar lomba di halaman Lomba atau gunakan fitur pencarian.' },
@@ -38,7 +41,7 @@ export async function GET(request: NextRequest) {
         }));
         params.set('fields', 'id,step,judul,deskripsi,tipe,urutan');
 
-        const response = await fetch(`${DIRECTUS_URL}/items/apm_panduan?${params.toString()}`, {
+        const response = await fetch(`${DIRECTUS_URL}/items/panduan?${params.toString()}`, {
             next: { revalidate: 60 },
         });
 

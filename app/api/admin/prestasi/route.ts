@@ -1,91 +1,240 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { validateAdminAuth, getAuthToken } from '@/lib/auth';
+/**
+ * Prestasi Submissions Admin API
+ * 
+ * GET  /api/admin/prestasi - List all submissions
+ * POST /api/admin/prestasi - Create a new submission (admin-initiated)
+ */
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma/client'
+import { requireAuth } from '@/lib/auth/jwt'
+import { querySubmissionsSchema, createPrestasiSubmissionSchema } from '@/lib/validations/prestasi'
+import {
+  successResponse,
+  createdResponse,
+  errorResponse,
+  unauthorizedResponse,
+  calculatePagination,
+  parseSearchParams,
+  validationErrorFromZod,
+} from '@/lib/api/helpers'
 
+/**
+ * GET /api/admin/prestasi
+ * List all prestasi submissions with pagination and filtering
+ */
 export async function GET(request: NextRequest) {
   try {
-    const token = getAuthToken(request);
-    const { searchParams } = new URL(request.url);
-    
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const search = searchParams.get('search');
-    const status = searchParams.get('status');
-    const tingkat = searchParams.get('tingkat');
+    const session = await requireAuth(request)
+    if (!session) {
+      return unauthorizedResponse()
+    }
 
-    const filter: Record<string, unknown> = {
-      is_deleted: { _eq: false },
-    };
-    if (status) filter.status = { _eq: status };
-    if (tingkat) filter.tingkat = { _eq: tingkat };
+    // Parse query parameters
+    const searchParams = request.nextUrl.searchParams
+    const params = parseSearchParams(searchParams, [
+      'page', 'limit', 'search', 'status', 'tingkat', 'sort', 'order'
+    ])
+
+    const validation = querySubmissionsSchema.safeParse({
+      page: params.page ? parseInt(params.page) : 1,
+      limit: params.limit ? parseInt(params.limit) : 10,
+      search: params.search || undefined,
+      status: params.status || undefined,
+      tingkat: params.tingkat || undefined,
+      sort: params.sort || 'created_at',
+      order: params.order || 'desc',
+    })
+
+    if (!validation.success) {
+      return validationErrorFromZod(validation.error.issues)
+    }
+
+    const { page, limit, search, status, tingkat, sort, order } = validation.data
+
+    // Build where clause
+    interface WhereClause {
+      status?: string
+      tingkat?: string
+      OR?: Array<{
+        judul?: { contains: string; mode: 'insensitive' }
+        nama_lomba?: { contains: string; mode: 'insensitive' }
+        submitter_name?: { contains: string; mode: 'insensitive' }
+        submitter_nim?: { contains: string; mode: 'insensitive' }
+      }>
+    }
+    
+    const where: WhereClause = {}
+
     if (search) {
-      filter._or = [
-        { nama_prestasi: { _icontains: search } },
-        { nama_lomba: { _icontains: search } },
-        { submitter_name: { _icontains: search } },
-      ];
+      where.OR = [
+        { judul: { contains: search, mode: 'insensitive' } },
+        { nama_lomba: { contains: search, mode: 'insensitive' } },
+        { submitter_name: { contains: search, mode: 'insensitive' } },
+        { submitter_nim: { contains: search, mode: 'insensitive' } },
+      ]
     }
 
-    const params = new URLSearchParams();
-    params.set('limit', limit.toString());
-    params.set('offset', ((page - 1) * limit).toString());
-    params.set('sort', '-date_created');
-    params.set('meta', 'total_count,filter_count');
-    params.set('fields', 'id,judul,nama_lomba,tingkat,peringkat,tanggal,sertifikat,status,reviewer_notes,verified_at,submitter_name,submitter_nim,submitter_email,date_created');
-    
-    if (Object.keys(filter).length > 0) {
-      params.set('filter', JSON.stringify(filter));
+    if (status) {
+      where.status = status
     }
 
-    const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    if (tingkat) {
+      where.tingkat = tingkat
     }
 
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_prestasi?${params.toString()}`, {
-      headers,
-      cache: 'no-store',
-    });
+    // Get total count
+    const total = await prisma.prestasiSubmission.count({ where })
 
-    if (!response.ok) {
-      throw new Error(`Directus error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    const data = result.data.map((item: Record<string, unknown>) => ({
-      id: item.id,
-      namaPrestasi: item.judul,
-      namaLomba: item.nama_lomba,
-      tingkat: item.tingkat,
-      peringkat: item.peringkat,
-      tanggal: item.tanggal,
-      sertifikatUrl: item.sertifikat ? `${DIRECTUS_URL}/assets/${item.sertifikat}` : null,
-      status: item.status,
-      reviewerNotes: item.reviewer_notes,
-      verifiedAt: item.verified_at,
-      submitterName: item.submitter_name,
-      submitterNim: item.submitter_nim,
-      submitterEmail: item.submitter_email,
-      dateCreated: item.date_created,
-    }));
-
-    return NextResponse.json({
-      data,
-      meta: {
-        total: result.meta?.filter_count || result.meta?.total_count || 0,
-        page,
-        limit,
-        totalPages: Math.ceil((result.meta?.filter_count || result.meta?.total_count || 0) / limit),
+    // Get paginated data with relations
+    const data = await prisma.prestasiSubmission.findMany({
+      where,
+      orderBy: { [sort]: order },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        judul: true,
+        nama_lomba: true,
+        tingkat: true,
+        peringkat: true,
+        tanggal: true,
+        status: true,
+        reviewer_notes: true,
+        reviewed_at: true,
+        submitter_name: true,
+        submitter_nim: true,
+        submitter_email: true,
+        created_at: true,
+        team_members: {
+          select: { id: true, nama: true, nim: true, is_ketua: true },
+        },
+        pembimbing: {
+          select: { id: true, nama: true, nidn: true },
+        },
+        documents: {
+          select: { id: true, type: true, file_path: true, file_name: true },
+        },
       },
-    });
+    })
+
+    const pagination = calculatePagination(total, page, limit)
+
+    // Get status counts for dashboard
+    const statusCounts = await prisma.prestasiSubmission.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    })
+
+    const stats = statusCounts.reduce((acc, item) => ({
+      ...acc,
+      [item.status]: item._count._all,
+    }), {} as Record<string, number>)
+
+    // Transform data for frontend compatibility
+    const transformedData = data.map(item => {
+      // Find sertifikat from documents
+      const sertifikatDoc = item.documents.find(d => d.type === 'sertifikat');
+      
+      return {
+        id: item.id,
+        namaPrestasi: item.judul,
+        namaLomba: item.nama_lomba,
+        tingkat: item.tingkat,
+        peringkat: item.peringkat,
+        tanggal: item.tanggal?.toISOString() || null,
+        sertifikatUrl: sertifikatDoc?.file_path || null,
+        status: item.status,
+        reviewerNotes: item.reviewer_notes || '',
+        verifiedAt: item.reviewed_at?.toISOString() || null,
+        submitterName: item.submitter_name,
+        submitterNim: item.submitter_nim,
+        submitterEmail: item.submitter_email,
+        dateCreated: item.created_at.toISOString(),
+        teamMembers: item.team_members,
+        pembimbing: item.pembimbing,
+        documents: item.documents,
+      };
+    })
+
+    // Return data with stats included in response
+    return NextResponse.json({
+      success: true,
+      data: transformedData,
+      meta: pagination,
+      stats,
+    })
   } catch (error) {
-    console.error('Error fetching prestasi:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch prestasi' },
-      { status: 500 }
-    );
+    console.error('Error fetching prestasi submissions:', error)
+    return errorResponse('Gagal mengambil data prestasi')
+  }
+}
+
+/**
+ * POST /api/admin/prestasi
+ * Create a new prestasi submission (admin-initiated)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const session = await requireAuth(request)
+    if (!session) {
+      return unauthorizedResponse()
+    }
+
+    const body = await request.json()
+
+    // Validate input
+    const validation = createPrestasiSubmissionSchema.safeParse(body)
+    if (!validation.success) {
+      return validationErrorFromZod(validation.error.issues)
+    }
+
+    const data = validation.data
+
+    // Create submission with relations
+    const submission = await prisma.prestasiSubmission.create({
+      data: {
+        judul: data.judul,
+        nama_lomba: data.nama_lomba,
+        penyelenggara: data.penyelenggara || null,
+        tingkat: data.tingkat,
+        peringkat: data.peringkat,
+        tanggal: data.tanggal ? new Date(data.tanggal) : null,
+        kategori: data.kategori || null,
+        deskripsi: data.deskripsi || null,
+        submitter_name: data.submitter_name,
+        submitter_nim: data.submitter_nim,
+        submitter_email: data.submitter_email,
+        submitter_whatsapp: data.submitter_whatsapp,
+        status: 'pending',
+        team_members: data.team_members && data.team_members.length > 0 ? {
+          create: data.team_members.map(member => ({
+            nama: member.nama,
+            nim: member.nim,
+            prodi: member.prodi || null,
+            angkatan: member.angkatan || null,
+            whatsapp: member.whatsapp || null,
+            is_ketua: member.is_ketua || false,
+          })),
+        } : undefined,
+        pembimbing: data.pembimbing && data.pembimbing.length > 0 ? {
+          create: data.pembimbing.map(p => ({
+            nama: p.nama,
+            nidn: p.nidn || null,
+            whatsapp: p.whatsapp || null,
+          })),
+        } : undefined,
+      },
+      include: {
+        team_members: true,
+        pembimbing: true,
+      },
+    })
+
+    return createdResponse(submission, 'Prestasi berhasil ditambahkan')
+  } catch (error) {
+    console.error('Error creating prestasi submission:', error)
+    return errorResponse('Gagal menambahkan prestasi')
   }
 }
 

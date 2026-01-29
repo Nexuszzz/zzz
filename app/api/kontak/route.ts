@@ -2,12 +2,15 @@
  * API Route: Contact Messages
  * POST /api/kontak
  * 
- * Saves contact form submissions to apm_messages collection
+ * Saves contact form submissions to messages collection
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
       is_deleted: false,
     };
 
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_messages`, {
+    const response = await fetch(`${DIRECTUS_URL}/items/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(messageData),
@@ -99,7 +102,7 @@ export async function GET(request: NextRequest) {
     }
     params.set('filter', JSON.stringify(filter));
 
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_messages?${params.toString()}`);
+    const response = await fetch(`${DIRECTUS_URL}/items/messages?${params.toString()}`);
 
     if (!response.ok) {
       return NextResponse.json(
@@ -115,7 +118,7 @@ export async function GET(request: NextRequest) {
     countParams.set('filter', JSON.stringify(filter));
     countParams.set('aggregate[count]', 'id');
 
-    const countRes = await fetch(`${DIRECTUS_URL}/items/apm_messages?${countParams.toString()}`);
+    const countRes = await fetch(`${DIRECTUS_URL}/items/messages?${countParams.toString()}`);
     const countData = await countRes.json();
     const total = countData.data?.[0]?.count?.id || 0;
 

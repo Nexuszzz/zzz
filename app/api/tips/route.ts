@@ -2,11 +2,13 @@
  * API Route: Get Tips & Strategi
  * GET /api/tips
  * 
- * Fetches tips data from Directus apm_tips collection
+ * Fetches tips data from Directus tips collection
  * Falls back to static data if collection doesn't exist
  */
 
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
@@ -64,7 +66,7 @@ export async function GET() {
         params.set('filter', JSON.stringify({ status: { _eq: 'published' } }));
         params.set('fields', 'id,judul,deskripsi,icon,urutan');
 
-        const response = await fetch(`${DIRECTUS_URL}/items/apm_tips?${params.toString()}`, {
+        const response = await fetch(`${DIRECTUS_URL}/items/tips?${params.toString()}`, {
             next: { revalidate: 60 },
         });
 

@@ -13,6 +13,7 @@ import {
   FileText,
   X
 } from 'lucide-react';
+import { BackButton } from '@/components/admin/BackButton';
 
 interface Prestasi {
   id: number;
@@ -63,13 +64,34 @@ export default function AdminPrestasiPage() {
       if (search) params.set('search', search);
       if (status) params.set('status', status);
       if (tingkat) params.set('tingkat', tingkat);
+      
+      // Add timestamp to bust cache
+      params.set('_t', Date.now().toString());
 
-      const res = await fetch(`/api/admin/prestasi?${params.toString()}`);
+      const res = await fetch(`/api/admin/prestasi?${params.toString()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
       const result = await res.json();
       
-      if (res.ok) {
-        setData(result.data);
-        setMeta(result.meta);
+      if (res.ok && result.success) {
+        // API returns { success: true, data: [...], meta: {...} }
+        const prestasiData = Array.isArray(result.data) ? result.data : [];
+        console.log('Fetched prestasi data:', prestasiData.length, 'items');
+        if (prestasiData.length > 0) {
+          console.log('First 3 items with status:', prestasiData.slice(0, 3).map((item: any) => ({
+            id: item.id,
+            nama: item.namaPrestasi,
+            status: item.status,
+          })));
+        }
+        setData([...prestasiData]);
+        if (result.meta) {
+          setMeta(prev => ({ ...prev, ...result.meta }));
+        }
       }
     } catch (error) {
       console.error('Error fetching prestasi:', error);
@@ -94,7 +116,7 @@ export default function AdminPrestasiPage() {
     setShowModal(true);
   };
 
-  const handleVerify = async (newStatus: 'verified' | 'rejected') => {
+  const handleVerify = async (newStatus: 'approved' | 'rejected') => {
     if (!selectedPrestasi) return;
     
     setIsProcessing(true);
@@ -105,12 +127,21 @@ export default function AdminPrestasiPage() {
         body: JSON.stringify({
           status: newStatus,
           reviewer_notes: reviewNotes,
+          make_public: true,
         }),
       });
 
       if (res.ok) {
+        const result = await res.json();
+        console.log('Verify result from server:', result);
+        
+        // Fetch fresh data first
+        await fetchData();
+        
+        // Then close modal after data is refreshed
         setShowModal(false);
-        fetchData();
+        setReviewNotes('');
+        setSelectedPrestasi(null);
       } else {
         const error = await res.json();
         alert(error.error || 'Gagal memproses');
@@ -136,11 +167,13 @@ export default function AdminPrestasiPage() {
     const styles: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
       verified: 'bg-green-100 text-green-800',
+      approved: 'bg-green-100 text-green-800', // Support both verified and approved
       rejected: 'bg-red-100 text-red-800',
     };
     const labels: Record<string, string> = {
       pending: 'Menunggu',
       verified: 'Terverifikasi',
+      approved: 'Terverifikasi', // Map approved to same label as verified
       rejected: 'Ditolak',
     };
     return { style: styles[status] || 'bg-slate-100 text-slate-800', label: labels[status] || status };
@@ -148,6 +181,9 @@ export default function AdminPrestasiPage() {
 
   return (
     <div className="space-y-6">
+      {/* Back to Dashboard */}
+      <BackButton />
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Verifikasi Prestasi</h1>
@@ -428,7 +464,7 @@ export default function AdminPrestasiPage() {
                 <span>Tolak</span>
               </button>
               <button
-                onClick={() => handleVerify('verified')}
+                onClick={() => handleVerify('approved')}
                 disabled={isProcessing}
                 className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
               >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Button, 
@@ -22,7 +22,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
-import { kategoriLomba, tingkatLomba, fakultasList } from '@/lib/constants';
+import { kategoriLomba, tingkatLomba, prodiTelkomList, peringkatOptions } from '@/lib/constants';
 
 type TeamMember = {
   nama: string;
@@ -37,19 +37,21 @@ export default function SubmissionPage() {
     namaLomba: '',
     penyelenggara: '',
     kategori: '',
+    kategoriCustom: '',
     tingkat: '',
     tanggalLomba: '',
     lokasi: '',
     
     // Hasil
     peringkat: '',
+    peringkatCustom: '',
     deskripsi: '',
     
     // Tim
     teamMembers: [{ nama: '', nim: '', prodi: '' }] as TeamMember[],
     dosenPembimbing: '',
     nipPembimbing: '',
-    fakultas: '',
+    prodi: '',
     
     // Files
     sertifikat: null as File | null,
@@ -59,6 +61,30 @@ export default function SubmissionPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [contactInfo, setContactInfo] = useState({ email: 'apm@polinema.ac.id', whatsapp: '+62 812-3456-7890' });
+
+  // Fetch contact info from Directus
+  useEffect(() => {
+    const fetchContactInfo = async () => {
+      try {
+        const response = await fetch('/api/site-settings');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data?.help) {
+            const { help } = result.data;
+            setContactInfo({
+              email: help.email || 'apm@polinema.ac.id',
+              whatsapp: help.whatsapp || '+62 812-3456-7890',
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch contact info:', error);
+      }
+    };
+    fetchContactInfo();
+  }, []);
 
   const updateFormData = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -87,15 +113,119 @@ export default function SubmissionPage() {
     }));
   };
 
+  const validateStep = (stepNumber: number): boolean => {
+    const newErrors: Record<string, string> = {};
+    
+    if (stepNumber === 1) {
+      if (!formData.namaLomba.trim()) newErrors.namaLomba = 'Nama lomba wajib diisi';
+      if (!formData.penyelenggara.trim()) newErrors.penyelenggara = 'Penyelenggara wajib diisi';
+      if (!formData.kategori) newErrors.kategori = 'Kategori wajib dipilih';
+      if (formData.kategori === 'Lainnya' && !formData.kategoriCustom.trim()) {
+        newErrors.kategoriCustom = 'Kategori custom wajib diisi';
+      }
+      if (!formData.tingkat) newErrors.tingkat = 'Tingkat wajib dipilih';
+      if (!formData.tanggalLomba) newErrors.tanggalLomba = 'Tanggal wajib diisi';
+      if (!formData.lokasi.trim()) newErrors.lokasi = 'Lokasi wajib diisi';
+      if (!formData.peringkat) newErrors.peringkat = 'Peringkat wajib dipilih';
+      if (formData.peringkat === 'Lainnya' && !formData.peringkatCustom.trim()) {
+        newErrors.peringkatCustom = 'Peringkat custom wajib diisi';
+      }
+    }
+    
+    if (stepNumber === 2) {
+      const ketua = formData.teamMembers[0];
+      if (!ketua.nama.trim()) newErrors['teamMember0Nama'] = 'Nama ketua wajib diisi';
+      if (!ketua.nim.trim()) {
+        newErrors['teamMember0Nim'] = 'NIM ketua wajib diisi';
+      } else if (!/^\d+$/.test(ketua.nim)) {
+        newErrors['teamMember0Nim'] = 'NIM harus berupa angka';
+      }
+      if (!ketua.prodi.trim()) newErrors['teamMember0Prodi'] = 'Prodi ketua wajib diisi';
+      if (!formData.prodi) newErrors.prodi = 'Program studi wajib dipilih';
+      
+      // Validate all team members
+      formData.teamMembers.forEach((member, idx) => {
+        if (member.nim && !/^\d+$/.test(member.nim)) {
+          newErrors[`teamMember${idx}Nim`] = 'NIM harus berupa angka';
+        }
+      });
+    }
+    
+    if (stepNumber === 3) {
+      if (!formData.sertifikat) newErrors.sertifikat = 'Sertifikat wajib diupload';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateStep(3)) {
+      return;
+    }
+    
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsSubmitting(false);
-    setSubmitSuccess(true);
+    try {
+      const submitFormData = new FormData();
+      // Match API field names
+      submitFormData.append('judul', formData.namaLomba); // API expects 'judul'
+      submitFormData.append('nama_lomba', formData.namaLomba); // API expects 'nama_lomba'
+      submitFormData.append('penyelenggara', formData.penyelenggara);
+      submitFormData.append('kategori', formData.kategori === 'Lainnya' ? formData.kategoriCustom : formData.kategori);
+      submitFormData.append('tingkat', formData.tingkat);
+      submitFormData.append('tanggal', formData.tanggalLomba); // API expects 'tanggal'
+      submitFormData.append('peringkat', formData.peringkat === 'Lainnya' ? formData.peringkatCustom : formData.peringkat);
+      submitFormData.append('deskripsi', formData.deskripsi);
+      // Submitter info from first team member (ketua)
+      const ketua = formData.teamMembers[0];
+      submitFormData.append('submitter_name', ketua?.nama || '');
+      submitFormData.append('submitter_nim', ketua?.nim || '');
+      submitFormData.append('submitter_email', ketua?.nim ? `${ketua.nim}@student.polinema.ac.id` : '');
+      submitFormData.append('tim', JSON.stringify(formData.teamMembers.map((m, i) => ({
+        nama: m.nama,
+        nim: m.nim,
+        role: i === 0 ? 'ketua' : 'anggota'
+      }))));
+      
+      if (formData.sertifikat) submitFormData.append('sertifikat', formData.sertifikat);
+      if (formData.suratKeterangan) submitFormData.append('suratKeterangan', formData.suratKeterangan);
+      formData.dokumentasi.forEach((file, idx) => {
+        submitFormData.append(`dokumentasi_${idx}`, file);
+      });
+      
+      const response = await fetch('/api/prestasi/submit', {
+        method: 'POST',
+        body: submitFormData,
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        // Handle validation errors from backend
+        if (result.errors) {
+          setErrors(result.errors);
+          // Show which step has errors
+          if (result.errors.submitter_nim || result.errors.submitter_name || result.errors.submitter_email) {
+            setStep(2); // Go back to team step
+          } else if (result.errors.sertifikat) {
+            setStep(3); // Go back to upload step
+          } else {
+            setStep(1); // Go back to info step
+          }
+          return;
+        }
+        throw new Error(result.error || 'Gagal mengirim data');
+      }
+      
+      setSubmitSuccess(true);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Terjadi kesalahan');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const peringkatOptions = [
@@ -238,8 +368,24 @@ export default function SubmissionPage() {
                         {kategoriLomba.map((k) => (
                           <option key={k.id} value={k.name}>{k.name}</option>
                         ))}
+                        <option value="Lainnya">Lainnya (isi manual)</option>
                       </select>
+                      {errors.kategori && <p className="text-xs text-error mt-1">{errors.kategori}</p>}
                     </div>
+                    {formData.kategori === 'Lainnya' && (
+                      <div>
+                        <label className="block text-sm font-medium text-text-main mb-1.5">
+                          Kategori Lainnya <span className="text-error">*</span>
+                        </label>
+                        <Input
+                          placeholder="Tulis kategori"
+                          value={formData.kategoriCustom}
+                          onChange={(e) => updateFormData('kategoriCustom', e.target.value)}
+                          required
+                        />
+                        {errors.kategoriCustom && <p className="text-xs text-error mt-1">{errors.kategoriCustom}</p>}
+                      </div>
+                    )}
                     <div>
                       <label className="block text-sm font-medium text-text-main mb-1.5">
                         Tingkat <span className="text-error">*</span>
@@ -255,6 +401,7 @@ export default function SubmissionPage() {
                           <option key={t.id} value={t.name}>{t.name}</option>
                         ))}
                       </select>
+                      {errors.tingkat && <p className="text-xs text-error mt-1">{errors.tingkat}</p>}
                     </div>
                   </div>
 
@@ -290,7 +437,23 @@ export default function SubmissionPage() {
                         <option key={p.value} value={p.value}>{p.label}</option>
                       ))}
                     </select>
+                    {errors.peringkat && <p className="text-xs text-error mt-1">{errors.peringkat}</p>}
                   </div>
+
+                  {formData.peringkat === 'Lainnya' && (
+                    <div>
+                      <label className="block text-sm font-medium text-text-main mb-1.5">
+                        Peringkat Lainnya <span className="text-error">*</span>
+                      </label>
+                      <Input
+                        placeholder="contoh: Best Innovation Award, Top 10, dll"
+                        value={formData.peringkatCustom}
+                        onChange={(e) => updateFormData('peringkatCustom', e.target.value)}
+                        required
+                      />
+                      {errors.peringkatCustom && <p className="text-xs text-error mt-1">{errors.peringkatCustom}</p>}
+                    </div>
+                  )}
 
                   <Textarea
                     label="Deskripsi Singkat"
@@ -304,7 +467,11 @@ export default function SubmissionPage() {
                 <div className="flex justify-end">
                   <Button 
                     type="button" 
-                    onClick={() => setStep(2)}
+                    onClick={() => {
+                      if (validateStep(1)) {
+                        setStep(2);
+                      }
+                    }}
                     rightIcon={<ChevronRight className="w-4 h-4" />}
                   >
                     Lanjutkan
@@ -359,18 +526,34 @@ export default function SubmissionPage() {
                             value={member.nama}
                             onChange={(e) => updateTeamMember(idx, 'nama', e.target.value)}
                             required
+                            error={errors[`teamMember${idx}Nama`]}
                           />
                           <Input
-                            placeholder="NIM"
+                            placeholder="NIM (hanya angka)"
                             value={member.nim}
-                            onChange={(e) => updateTeamMember(idx, 'nim', e.target.value)}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              updateTeamMember(idx, 'nim', value);
+                              // Real-time validation
+                              if (value && !/^\d+$/.test(value)) {
+                                setErrors(prev => ({ ...prev, [`teamMember${idx}Nim`]: 'NIM harus berupa angka' }));
+                              } else {
+                                setErrors(prev => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors[`teamMember${idx}Nim`];
+                                  return newErrors;
+                                });
+                              }
+                            }}
                             required
+                            error={errors[`teamMember${idx}Nim`]}
                           />
                           <Input
                             placeholder="Program Studi"
                             value={member.prodi}
                             onChange={(e) => updateTeamMember(idx, 'prodi', e.target.value)}
                             required
+                            error={errors[`teamMember${idx}Prodi`]}
                           />
                         </div>
                       </div>
@@ -380,7 +563,7 @@ export default function SubmissionPage() {
 
                 {/* Dosen Pembimbing */}
                 <div className="pt-4 border-t border-gray-100">
-                  <p className="text-sm font-medium text-text-main mb-3">Dosen Pembimbing</p>
+                  <p className="text-sm font-medium text-text-main mb-3">Dosen Pembimbing (Opsional)</p>
                   <div className="grid grid-cols-2 gap-4">
                     <Input
                       label="Nama Dosen"
@@ -397,22 +580,26 @@ export default function SubmissionPage() {
                   </div>
                 </div>
 
-                {/* Fakultas */}
+                {/* Program Studi */}
                 <div>
                   <label className="block text-sm font-medium text-text-main mb-1.5">
-                    Fakultas <span className="text-error">*</span>
+                    Program Studi <span className="text-error">*</span>
                   </label>
                   <select
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    value={formData.fakultas}
-                    onChange={(e) => updateFormData('fakultas', e.target.value)}
+                    value={formData.prodi}
+                    onChange={(e) => updateFormData('prodi', e.target.value)}
                     required
                   >
-                    <option value="">Pilih fakultas</option>
-                    {fakultasList.map((f) => (
-                      <option key={f.id} value={f.name}>{f.name}</option>
+                    <option value="">Pilih program studi</option>
+                    {prodiTelkomList.map((p) => (
+                      <option key={p.id} value={p.name}>{p.name}</option>
                     ))}
                   </select>
+                  {errors.prodi && <p className="text-xs text-error mt-1">{errors.prodi}</p>}
+                  <p className="text-xs text-text-muted mt-1">
+                    Program Studi Teknik Telekomunikasi - Jurusan Teknik Elektro
+                  </p>
                 </div>
 
                 <div className="flex justify-between">
@@ -425,7 +612,11 @@ export default function SubmissionPage() {
                   </Button>
                   <Button 
                     type="button" 
-                    onClick={() => setStep(3)}
+                    onClick={() => {
+                      if (validateStep(2)) {
+                        setStep(3);
+                      }
+                    }}
                     rightIcon={<ChevronRight className="w-4 h-4" />}
                   >
                     Lanjutkan
@@ -490,6 +681,7 @@ export default function SubmissionPage() {
                       )}
                     </label>
                   </div>
+                  {errors.sertifikat && <p className="text-xs text-error mt-1">{errors.sertifikat}</p>}
                 </div>
 
                 {/* Dokumentasi */}
@@ -616,12 +808,27 @@ export default function SubmissionPage() {
             <div className="text-sm text-text-muted">
               <p className="font-medium text-text-main mb-1">Butuh bantuan?</p>
               <p>
-                Hubungi tim APM di{' '}
-                <a href="mailto:apm@polinema.ac.id" className="text-primary hover:underline">
-                  apm@polinema.ac.id
-                </a>{' '}
-                atau kunjungi Gedung JTI Polinema Lt. 5.
+                Hubungi tim APM:
               </p>
+              <div className="mt-2 space-y-1">
+                <p>
+                  📧 Email:{' '}
+                  <a href={`mailto:${contactInfo.email}`} className="text-primary hover:underline">
+                    {contactInfo.email}
+                  </a>
+                </p>
+                <p>
+                  💬 WhatsApp:{' '}
+                  <a 
+                    href={`https://wa.me/${contactInfo.whatsapp.replace(/[^0-9]/g, '')}`} 
+                    className="text-primary hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {contactInfo.whatsapp}
+                  </a>
+                </p>
+              </div>
             </div>
           </div>
         </div>

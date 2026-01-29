@@ -195,26 +195,28 @@ export default function CreateExpoPage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Tanggal Selesai
+                Tanggal Selesai <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 name="tanggal_selesai"
                 value={formData.tanggal_selesai}
                 onChange={handleChange}
+                required
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Lokasi
+                Lokasi <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 name="lokasi"
                 value={formData.lokasi}
                 onChange={handleChange}
+                required
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Contoh: Jakarta"
               />

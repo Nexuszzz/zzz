@@ -1,86 +1,116 @@
 ﻿/**
- * API Route: Get Prestasi List
- * GET /api/prestasi
+ * Public Prestasi API
+ * 
+ * GET /api/prestasi - Get list of published prestasi
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma/client'
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
-    const tingkat = searchParams.get('tingkat');
-    const kategori = searchParams.get('kategori');
-    const tahun = searchParams.get('tahun');
-    const search = searchParams.get('search');
-    const slug = searchParams.get('slug'); // Add slug filter for detail page
+    const { searchParams } = new URL(request.url)
 
-    // Build filter - only verified (unless querying by slug)
-    const filter: Record<string, unknown> = slug
-      ? { slug: { _eq: slug } } // Direct slug lookup (no verified filter)
-      : { status: { _eq: 'verified' } };
-    
-    if (tingkat && !slug) filter.tingkat = { _eq: tingkat };
-    if (kategori && !slug) filter.kategori = { _eq: kategori };
-    if (tahun && !slug) filter.tahun = { _eq: parseInt(tahun) };
-    if (search && !slug) {
-      filter._or = [
-        { judul: { _icontains: search } },
-        { nama_lomba: { _icontains: search } },
-      ];
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '12')
+    const tingkat = searchParams.get('tingkat')
+    const kategori = searchParams.get('kategori')
+    const tahun = searchParams.get('tahun')
+    const search = searchParams.get('search')
+    const slug = searchParams.get('slug')
+
+    // Build where clause
+    const where: Record<string, unknown> = {
+      is_published: true,
     }
 
-    // Build URL params
-    const params = new URLSearchParams();
-    params.set('limit', slug ? '1' : limit.toString());
-    params.set('offset', slug ? '0' : ((page - 1) * limit).toString());
-    params.set('sort', '-tanggal');
-    // Include more fields for detail view when querying by slug
-    const fields = slug
-      ? 'id,judul,slug,nama_lomba,peringkat,tingkat,kategori,tanggal,tahun,deskripsi,sertifikat,status,penyelenggara,lokasi'
-      : 'id,judul,slug,nama_lomba,peringkat,tingkat,kategori,tanggal,tahun,sertifikat,status';
-    params.set('fields', fields);
-    params.set('filter', JSON.stringify(filter));
-
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_prestasi?${params.toString()}`, {
-      next: { revalidate: 60 },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Directus error: ${response.status}`);
+    if (slug) {
+      where.slug = slug
+    } else {
+      if (tingkat) where.tingkat = tingkat
+      if (kategori) where.kategori = kategori
+      if (tahun) where.tahun = parseInt(tahun)
+      
+      if (search) {
+        where.OR = [
+          { judul: { contains: search, mode: 'insensitive' } },
+          { nama_lomba: { contains: search, mode: 'insensitive' } },
+        ]
+      }
     }
 
-    const result = await response.json();
-    
-    // Transform data for frontend
-    const data = result.data.map((item: Record<string, unknown>) => ({
+    // Query prestasi
+    const [prestasiList, total] = await Promise.all([
+      prisma.prestasi.findMany({
+        where: where as any,
+        orderBy: { published_at: 'desc' },
+        skip: slug ? 0 : (page - 1) * limit,
+        take: slug ? 1 : limit,
+        include: {
+          submission: slug ? {
+            include: {
+              team_members: true,
+              pembimbing: true,
+              documents: true,
+            },
+          } : false,
+        },
+      }),
+      slug ? Promise.resolve(1) : prisma.prestasi.count({ where: where as any }),
+    ])
+
+    // Transform data for frontend compatibility
+    const data = prestasiList.map((item) => ({
       id: item.id,
       slug: item.slug,
       title: item.judul,
+      judul: item.judul,
       namaLomba: item.nama_lomba,
+      nama_lomba: item.nama_lomba,
       peringkat: item.peringkat,
-      tingkat: String(item.tingkat || '').charAt(0).toUpperCase() + String(item.tingkat || '').slice(1),
-      tahun: String(item.tahun),
-      kategori: String(item.kategori || ''),
+      tingkat: item.tingkat.charAt(0).toUpperCase() + item.tingkat.slice(1),
+      tahun: item.tahun.toString(),
+      kategori: item.kategori || '',
       deskripsi: item.deskripsi || '',
-      penyelenggara: item.penyelenggara || '',
-      lokasi: item.lokasi || '',
-      tanggal: item.tanggal || '',
-      isVerified: item.status === 'verified',
-      sertifikatUrl: item.sertifikat ? `${DIRECTUS_URL}/assets/${item.sertifikat}?width=400` : null,
-    }));
+      isVerified: true, // All published prestasi are verified
+      isFeatured: item.is_featured,
+      thumbnailUrl: item.thumbnail || null,
+      galeri: item.galeri,
+      sertifikatUrl: item.sertifikat_public ? item.sertifikat : null,
+      linkBerita: item.link_berita || null,
+      linkPortofolio: item.link_portofolio || null,
+      publishedAt: item.published_at.toISOString(),
+      // Include submission details if loaded
+      ...((item as any).submission ? {
+        submission: {
+          penyelenggara: (item as any).submission.penyelenggara,
+          tanggal: (item as any).submission.tanggal?.toISOString(),
+          team_members: (item as any).submission.team_members,
+          pembimbing: (item as any).submission.pembimbing,
+          documents: (item as any).submission.documents,
+        },
+      } : {}),
+    }))
 
-    return NextResponse.json({ data });
+    return NextResponse.json({
+      success: true,
+      data,
+      pagination: slug ? undefined : {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
-    console.error('Error fetching prestasi:', error);
+    console.error('Error fetching prestasi:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch prestasi' },
+      { success: false, error: 'Gagal mengambil data prestasi' },
       { status: 500 }
-    );
+    )
   }
 }
 

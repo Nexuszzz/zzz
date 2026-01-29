@@ -81,6 +81,10 @@ services:
       # File Storage
       STORAGE_LOCATIONS: local
       STORAGE_LOCAL_ROOT: ./uploads
+      
+      # File Upload Limits (increase to 50MB)
+      FILES_MAX_UPLOAD_SIZE: 52428800
+      FILES_MIME_TYPE_ALLOW_LIST: application/pdf,image/jpeg,image/jpg,image/png,image/webp
 
       # Extensions
       EXTENSIONS_AUTO_RELOAD: "true"

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * API Route: Get Resources List
  * GET /api/resources
  */
@@ -6,6 +6,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,7 +49,7 @@ export async function GET(request: NextRequest) {
     params.set('fields', fields);
     params.set('filter', JSON.stringify(filter));
 
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_resources?${params.toString()}`, {
+    const response = await fetch(`${DIRECTUS_URL}/items/resources?${params.toString()}`, {
       next: { revalidate: 60 },
     });
 

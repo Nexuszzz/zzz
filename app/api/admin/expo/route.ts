@@ -1,135 +1,225 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { validateAdminAuth, getAuthToken } from '@/lib/auth';
+/**
+ * Expo Admin API - CRUD Operations
+ * 
+ * GET  /api/admin/expo - List all expo events
+ * POST /api/admin/expo - Create new expo event
+ */
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma/client'
+import { requireAuth } from '@/lib/auth/jwt'
+import { createExpoSchema, queryExpoSchema } from '@/lib/validations/expo'
+import {
+  successResponse,
+  createdResponse,
+  errorResponse,
+  unauthorizedResponse,
+  generateSlug,
+  calculatePagination,
+  parseSearchParams,
+  validationErrorFromZod,
+} from '@/lib/api/helpers'
 
+/**
+ * GET /api/admin/expo
+ * List all expo events with pagination and filtering
+ */
 export async function GET(request: NextRequest) {
   try {
-    const token = getAuthToken(request);
-    const { searchParams } = new URL(request.url);
-    
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const search = searchParams.get('search');
-    const status = searchParams.get('status');
-    const includeDeleted = searchParams.get('includeDeleted') === 'true';
-
-    const filter: Record<string, unknown> = {};
-    if (!includeDeleted) {
-      filter.is_deleted = { _eq: false };
+    const session = await requireAuth(request)
+    if (!session) {
+      return unauthorizedResponse()
     }
-    if (status) filter.status = { _eq: status };
+
+    // Parse query parameters
+    const searchParams = request.nextUrl.searchParams
+    const params = parseSearchParams(searchParams, [
+      'page', 'limit', 'search', 'status', 'sort', 'order'
+    ])
+
+    const validation = queryExpoSchema.safeParse({
+      page: params.page ? parseInt(params.page) : 1,
+      limit: params.limit ? parseInt(params.limit) : 10,
+      search: params.search || undefined,
+      status: params.status || undefined,
+      sort: params.sort || 'created_at',
+      order: params.order || 'desc',
+    })
+
+    if (!validation.success) {
+      return validationErrorFromZod(validation.error.issues)
+    }
+
+    const { page, limit, search, status, sort, order } = validation.data
+
+    // Build where clause
+    interface WhereClause {
+      is_deleted?: boolean
+      status?: string
+      OR?: Array<{
+        nama_event?: { contains: string; mode: 'insensitive' }
+        tema?: { contains: string; mode: 'insensitive' }
+        deskripsi?: { contains: string; mode: 'insensitive' }
+      }>
+    }
+    
+    const where: WhereClause = {
+      is_deleted: false,
+    }
+
     if (search) {
-      filter._or = [
-        { nama_event: { _icontains: search } },
-        { tema: { _icontains: search } },
-      ];
+      where.OR = [
+        { nama_event: { contains: search, mode: 'insensitive' } },
+        { tema: { contains: search, mode: 'insensitive' } },
+        { deskripsi: { contains: search, mode: 'insensitive' } },
+      ]
     }
 
-    const params = new URLSearchParams();
-    params.set('limit', limit.toString());
-    params.set('offset', ((page - 1) * limit).toString());
-    params.set('sort', '-date_created');
-    params.set('meta', 'total_count,filter_count');
-    params.set('fields', 'id,nama_event,slug,tema,tanggal_mulai,tanggal_selesai,lokasi,status,is_featured,date_created,poster,is_deleted,registration_open,registration_deadline,max_participants');
-    
-    if (Object.keys(filter).length > 0) {
-      params.set('filter', JSON.stringify(filter));
+    if (status) {
+      where.status = status
     }
 
-    const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    // Get total count
+    const total = await prisma.expo.count({ where })
 
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_expo?${params.toString()}`, {
-      headers,
-      cache: 'no-store',
-    });
+    // Get paginated data
+    const data = await prisma.expo.findMany({
+      where,
+      orderBy: { [sort]: order },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        nama_event: true,
+        slug: true,
+        tema: true,
+        tanggal_mulai: true,
+        tanggal_selesai: true,
+        lokasi: true,
+        status: true,
+        is_featured: true,
+        registration_open: true,
+        registration_deadline: true,
+        max_participants: true,
+        created_at: true,
+        updated_at: true,
+        _count: {
+          select: { registrations: true }
+        }
+      },
+    })
 
-    if (!response.ok) {
-      throw new Error(`Directus error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    const data = result.data.map((item: Record<string, unknown>) => ({
+    // Transform for response
+    const transformedData = data.map(item => ({
       id: item.id,
       namaEvent: item.nama_event,
       slug: item.slug,
       tema: item.tema,
-      tanggalMulai: item.tanggal_mulai,
-      tanggalSelesai: item.tanggal_selesai,
+      tanggalMulai: item.tanggal_mulai?.toISOString() || null,
+      tanggalSelesai: item.tanggal_selesai?.toISOString() || null,
       lokasi: item.lokasi,
       status: item.status,
       isFeatured: item.is_featured,
-      isDeleted: item.is_deleted,
-      dateCreated: item.date_created,
-      posterUrl: item.poster ? `${DIRECTUS_URL}/assets/${item.poster}?width=100` : null,
       registrationOpen: item.registration_open,
-      registrationDeadline: item.registration_deadline,
+      registrationDeadline: item.registration_deadline?.toISOString() || null,
       maxParticipants: item.max_participants,
-    }));
+      dateCreated: item.created_at.toISOString(),
+      registrationCount: item._count.registrations,
+    }))
 
+    const pagination = calculatePagination(total, page, limit)
+
+    // Return data as array directly (not nested)
     return NextResponse.json({
-      data,
-      meta: {
-        total: result.meta?.filter_count || result.meta?.total_count || 0,
-        page,
-        limit,
-        totalPages: Math.ceil((result.meta?.filter_count || result.meta?.total_count || 0) / limit),
-      },
-    });
+      success: true,
+      data: transformedData,
+      meta: pagination,
+    })
   } catch (error) {
-    console.error('Error fetching expo:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch expo' },
-      { status: 500 }
-    );
+    console.error('Error fetching expo:', error)
+    return errorResponse('Gagal mengambil data expo')
   }
 }
 
+/**
+ * POST /api/admin/expo
+ * Create a new expo event
+ */
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await validateAdminAuth(request);
-    if (!authResult.valid) {
-      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
-    }
-    const token = authResult.token;
-
-    const body = await request.json();
-    
-    if (!body.slug) {
-      body.slug = body.nama_event
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .trim();
+    const session = await requireAuth(request)
+    if (!session) {
+      return unauthorizedResponse()
     }
 
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_expo`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+    const body = await request.json()
+    console.log('[Expo] Create request body:', JSON.stringify(body, null, 2))
+
+    // Validate input
+    const validation = createExpoSchema.safeParse(body)
+    if (!validation.success) {
+      console.log('[Expo] Validation errors:', JSON.stringify(validation.error.issues, null, 2))
+      return validationErrorFromZod(validation.error.issues)
+    }
+
+    const data = validation.data
+
+    // Generate slug
+    let slug = data.slug
+    if (!slug) {
+      slug = generateSlug(data.nama_event)
+      const existing = await prisma.expo.findUnique({ where: { slug } })
+      if (existing) {
+        slug = `${slug}-${Date.now()}`
+      }
+    } else {
+      const existing = await prisma.expo.findUnique({ where: { slug } })
+      if (existing) {
+        return errorResponse('Slug sudah digunakan', 400)
+      }
+    }
+
+    // Create expo
+    const expo = await prisma.expo.create({
+      data: {
+        nama_event: data.nama_event,
+        slug,
+        tema: data.tema || null,
+        tanggal_mulai: new Date(data.tanggal_mulai),
+        tanggal_selesai: new Date(data.tanggal_selesai),
+        lokasi: data.lokasi,
+        alamat_lengkap: data.alamat_lengkap || null,
+        deskripsi: data.deskripsi || null,
+        poster: data.poster || null,
+        galeri: data.galeri || [],
+        status: data.status || 'upcoming',
+        is_featured: data.is_featured || false,
+        tipe_pendaftaran: data.tipe_pendaftaran || 'none',
+        link_pendaftaran: data.link_pendaftaran || null,
+        registration_open: data.registration_open ?? false,
+        registration_deadline: data.registration_deadline 
+          ? new Date(data.registration_deadline) 
+          : null,
+        max_participants: data.max_participants || null,
+        biaya_partisipasi: data.biaya_partisipasi || 0,
+        custom_form: data.custom_form || undefined,
+        highlights: data.highlights || undefined,
+        rundown: data.rundown || undefined,
+        benefit: data.benefit || null,
+        website_resmi: data.website_resmi || null,
       },
-      body: JSON.stringify(body),
-    });
+    })
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.errors?.[0]?.message || 'Failed to create expo');
-    }
-
-    const result = await response.json();
-    return NextResponse.json({ data: result.data });
+    return createdResponse(expo, 'Expo berhasil dibuat')
   } catch (error) {
-    console.error('Error creating expo:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create expo' },
-      { status: 500 }
-    );
+    console.error('Error creating expo:', error)
+    
+    // Check for unique constraint violation
+    if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'P2002') {
+      return errorResponse('Slug sudah digunakan', 400)
+    }
+    
+    return errorResponse('Gagal membuat expo')
   }
 }
 

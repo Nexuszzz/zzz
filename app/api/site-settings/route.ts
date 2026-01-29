@@ -2,11 +2,14 @@
  * API Route: Site Settings
  * GET /api/site-settings
  * 
- * Fetches site settings and statistics from Directus
- * Falls back to calculated values if CMS not configured
+ * Fetches site settings and statistics
+ * Stats come from Prisma (apm_ tables), help content from Directus CMS
  */
 
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma/client';
+
+export const dynamic = 'force-dynamic';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
@@ -21,6 +24,7 @@ interface HelpContent {
     title: string;
     description: string;
     email: string;
+    whatsapp?: string;
     showLocation: boolean;
     location?: string;
 }
@@ -39,45 +43,29 @@ async function getCalculatedStats(): Promise<SiteStats> {
     };
 
     try {
-        // Get lomba count
-        const lombaRes = await fetch(
-            `${DIRECTUS_URL}/items/apm_lomba?aggregate[count]=id&filter[status][_neq]=closed`,
-            { cache: 'no-store' }
-        );
-        if (lombaRes.ok) {
-            const data = await lombaRes.json();
-            stats.totalLomba = data.data?.[0]?.count?.id || 0;
-        }
+        // Get counts from Prisma (apm_ tables)
+        const [lombaCount, prestasiCount, expoCount] = await Promise.all([
+            prisma.lomba.count({ 
+                where: { is_deleted: false, status: { not: 'closed' } } 
+            }),
+            prisma.prestasi.count({ 
+                where: { is_published: true } 
+            }),
+            prisma.expo.count({ 
+                where: { is_deleted: false } 
+            }),
+        ]);
 
-        // Get verified prestasi count
-        const prestasiRes = await fetch(
-            `${DIRECTUS_URL}/items/apm_prestasi?aggregate[count]=id&filter[status_verifikasi][_eq]=verified`,
-            { cache: 'no-store' }
-        );
-        if (prestasiRes.ok) {
-            const data = await prestasiRes.json();
-            stats.totalPrestasi = data.data?.[0]?.count?.id || 0;
-        }
+        stats.totalLomba = lombaCount;
+        stats.totalPrestasi = prestasiCount;
+        stats.totalExpo = expoCount;
 
-        // Get expo count
-        const expoRes = await fetch(
-            `${DIRECTUS_URL}/items/apm_expo?aggregate[count]=id`,
-            { cache: 'no-store' }
-        );
-        if (expoRes.ok) {
-            const data = await expoRes.json();
-            stats.totalExpo = data.data?.[0]?.count?.id || 0;
-        }
-
-        // Get unique student count from prestasi tim
-        const mahasiswaRes = await fetch(
-            `${DIRECTUS_URL}/items/apm_prestasi_tim?aggregate[countDistinct]=nim`,
-            { cache: 'no-store' }
-        );
-        if (mahasiswaRes.ok) {
-            const data = await mahasiswaRes.json();
-            stats.totalMahasiswa = data.data?.[0]?.countDistinct?.nim || 0;
-        }
+        // Get unique student count from prestasi team members
+        const uniqueStudents = await prisma.prestasiTeamMember.groupBy({
+            by: ['nim'],
+            where: { nim: { not: '' } },
+        });
+        stats.totalMahasiswa = uniqueStudents.length;
     } catch (error) {
         console.error('Error calculating stats:', error);
     }
@@ -91,7 +79,7 @@ export async function GET() {
         let settings: SiteSettings | null = null;
 
         try {
-            const settingsRes = await fetch(`${DIRECTUS_URL}/items/apm_site_settings`, {
+            const settingsRes = await fetch(`${DIRECTUS_URL}/items/site_settings`, {
                 cache: 'no-store',
             });
 
@@ -109,6 +97,7 @@ export async function GET() {
                             title: data.data.help_title || 'Butuh Bantuan?',
                             description: data.data.help_description || 'Tim APM siap membantu Anda',
                             email: data.data.help_email || 'apm@polinema.ac.id',
+                            whatsapp: data.data.help_whatsapp || '+62 812-3456-7890',
                             showLocation: data.data.help_show_location || false,
                             location: data.data.help_location,
                         },
@@ -128,6 +117,7 @@ export async function GET() {
                     title: 'Butuh Bantuan?',
                     description: 'Tim APM siap membantu Anda',
                     email: 'apm@polinema.ac.id',
+                    whatsapp: '+62 812-3456-7890',
                     showLocation: false,
                 },
             };
@@ -154,6 +144,7 @@ export async function GET() {
                     title: 'Butuh Bantuan?',
                     description: 'Tim APM siap membantu Anda',
                     email: 'apm@polinema.ac.id',
+                    whatsapp: '+62 812-3456-7890',
                     showLocation: false,
                 },
             },

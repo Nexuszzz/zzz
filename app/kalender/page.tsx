@@ -70,11 +70,28 @@ export default function KalenderPage() {
         const res = await fetch(`/api/calendar?month=${monthStr}`);
         const data = await res.json();
 
-        if (data.success && data.data) {
-          setEvents(data.data);
+        if (data.success && data.data && Array.isArray(data.data.events)) {
+          // Transform snake_case from API to camelCase for frontend
+          const transformedEvents = data.data.events.map((event: Record<string, unknown>) => ({
+            id: event.id,
+            title: event.title,
+            type: event.type,
+            startDate: event.start_date,
+            endDate: event.end_date,
+            time: event.time,
+            lokasi: event.lokasi,
+            description: event.description,
+            link: event.link,
+            kategori: event.kategori,
+            isUrgent: event.is_urgent,
+          }));
+          setEvents(transformedEvents);
+        } else {
+          setEvents([]);
         }
       } catch (error) {
         console.error('Failed to fetch calendar events:', error);
+        setEvents([]);
       } finally {
         setLoading(false);
       }

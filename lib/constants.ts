@@ -121,6 +121,22 @@ export const fakultasList = [
   { id: 'jan', name: 'Jurusan Administrasi Niaga' },
 ] as const;
 
+// Program Studi Teknik Telekomunikasi (Jurusan Teknik Elektro)
+export const prodiTelkomList = [
+  { id: 'd2-telkom', name: 'D2 Teknik Telekomunikasi' },
+  { id: 'd4-telkom', name: 'D4 Teknik Telekomunikasi' },
+] as const;
+
+// Peringkat/Hasil Lomba
+export const peringkatOptions = [
+  { value: 'Juara 1', label: 'Juara 1' },
+  { value: 'Juara 2', label: 'Juara 2' },
+  { value: 'Juara 3', label: 'Juara 3' },
+  { value: 'Juara Harapan', label: 'Juara Harapan' },
+  { value: 'Finalis', label: 'Finalis' },
+  { value: 'Lainnya', label: 'Lainnya (isi manual)' },
+] as const;
+
 // Pagination
 export const ITEMS_PER_PAGE = 12;
 export const MAX_VISIBLE_PAGES = 5;

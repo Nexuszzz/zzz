@@ -7,29 +7,27 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma/client';
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
-
-interface Lomba {
-  id: number;
-  nama_lomba: string;
-  slug: string;
-  deadline: string;
-  penyelenggara: string;
-}
-
-interface Registration {
-  id: number;
-  nama_lengkap: string;
-  email: string;
-  nim: string;
-  lomba_id: number;
-}
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
 
 interface UpcomingDeadline {
-  lomba: Lomba;
+  lomba: {
+    id: number;
+    nama_lomba: string;
+    slug: string;
+    deadline: Date;
+    penyelenggara: string | null;
+  };
   daysUntilDeadline: number;
-  registrations: Registration[];
+  registrations: Array<{
+    id: number;
+    nama: string;
+    email: string;
+    nim: string;
+    lomba_id: number;
+  }>;
 }
 
 /**
@@ -51,21 +49,24 @@ export async function GET(request: NextRequest) {
     const futureDate = new Date(today);
     futureDate.setDate(futureDate.getDate() + daysAhead);
 
-    // Fetch lomba with upcoming deadlines
-    const lombaParams = new URLSearchParams();
-    lombaParams.set('fields', 'id,nama_lomba,slug,deadline,penyelenggara');
-    lombaParams.set('filter', JSON.stringify({
-      _and: [
-        { is_deleted: { _eq: false } },
-        { deadline: { _gte: today.toISOString().split('T')[0] } },
-        { deadline: { _lte: futureDate.toISOString().split('T')[0] } },
-      ],
-    }));
-    lombaParams.set('sort', 'deadline');
-
-    const lombaRes = await fetch(`${DIRECTUS_URL}/items/apm_lomba?${lombaParams.toString()}`);
-    const lombaData = await lombaRes.json();
-    const upcomingLomba: Lomba[] = lombaData.data || [];
+    // Fetch lomba with upcoming deadlines using Prisma
+    const upcomingLomba = await prisma.lomba.findMany({
+      where: {
+        is_deleted: false,
+        deadline: {
+          gte: today,
+          lte: futureDate,
+        },
+      },
+      orderBy: { deadline: 'asc' },
+      select: {
+        id: true,
+        nama_lomba: true,
+        slug: true,
+        deadline: true,
+        penyelenggara: true,
+      },
+    });
 
     if (upcomingLomba.length === 0) {
       return NextResponse.json({
@@ -79,26 +80,38 @@ export async function GET(request: NextRequest) {
     const upcomingDeadlines: UpcomingDeadline[] = [];
     
     for (const lomba of upcomingLomba) {
+      if (!lomba.deadline) continue;
+      
       const deadlineDate = new Date(lomba.deadline);
       deadlineDate.setHours(0, 0, 0, 0);
       const diffTime = deadlineDate.getTime() - today.getTime();
       const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       // Fetch registrations for this lomba
-      const regParams = new URLSearchParams();
-      regParams.set('fields', 'id,nama_lengkap,email,nim,lomba_id');
-      regParams.set('filter', JSON.stringify({
-        lomba_id: { _eq: lomba.id },
-        status: { _eq: 'approved' },
-      }));
-
-      const regRes = await fetch(`${DIRECTUS_URL}/items/apm_lomba_registrations?${regParams.toString()}`);
-      const regData = await regRes.json();
+      const registrations = await prisma.lombaRegistration.findMany({
+        where: {
+          lomba_id: lomba.id,
+          status: 'registered',
+        },
+        select: {
+          id: true,
+          nama: true,
+          email: true,
+          nim: true,
+          lomba_id: true,
+        },
+      });
 
       upcomingDeadlines.push({
-        lomba,
+        lomba: {
+          id: lomba.id,
+          nama_lomba: lomba.nama_lomba || '',
+          slug: lomba.slug || '',
+          deadline: lomba.deadline,
+          penyelenggara: lomba.penyelenggara,
+        },
         daysUntilDeadline: daysUntil,
-        registrations: regData.data || [],
+        registrations,
       });
     }
 
@@ -110,7 +123,6 @@ export async function GET(request: NextRequest) {
     };
 
     // If action is 'send', we would send emails here
-    // For now, we'll just log what would be sent
     const emailsToSend: Array<{
       to: string;
       subject: string;
@@ -121,6 +133,8 @@ export async function GET(request: NextRequest) {
     if (action === 'send') {
       for (const deadline of upcomingDeadlines) {
         for (const reg of deadline.registrations) {
+          if (!reg.email) continue;
+          
           const urgency = deadline.daysUntilDeadline <= 1 ? 'URGENT' : 
                           deadline.daysUntilDeadline <= 3 ? 'SEGERA' : 'PENGINGAT';
           
@@ -128,15 +142,15 @@ export async function GET(request: NextRequest) {
             to: reg.email,
             subject: `[${urgency}] Deadline ${deadline.lomba.nama_lomba} - ${deadline.daysUntilDeadline === 0 ? 'HARI INI' : `${deadline.daysUntilDeadline} hari lagi`}`,
             body: `
-Halo ${reg.nama_lengkap},
+Halo ${reg.nama || 'Peserta'},
 
 Ini adalah pengingat bahwa deadline untuk lomba "${deadline.lomba.nama_lomba}" 
 ${deadline.daysUntilDeadline === 0 ? 'adalah HARI INI!' : `tinggal ${deadline.daysUntilDeadline} hari lagi.`}
 
 Detail Lomba:
 - Nama: ${deadline.lomba.nama_lomba}
-- Penyelenggara: ${deadline.lomba.penyelenggara}
-- Deadline: ${new Date(deadline.lomba.deadline).toLocaleDateString('id-ID', { 
+- Penyelenggara: ${deadline.lomba.penyelenggara || '-'}
+- Deadline: ${deadline.lomba.deadline.toLocaleDateString('id-ID', { 
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
 })}
 
@@ -150,8 +164,6 @@ Tim APM Polinema
         }
       }
 
-      // In production, integrate with email service here
-      // For now, just return what would be sent
       console.log(`[Reminders] Would send ${emailsToSend.length} emails`);
     }
 
@@ -168,21 +180,21 @@ Tim APM Polinema
         urgent: reminders.urgent.map(d => ({
           lombaId: d.lomba.id,
           namaLomba: d.lomba.nama_lomba,
-          deadline: d.lomba.deadline,
+          deadline: d.lomba.deadline.toISOString(),
           daysUntil: d.daysUntilDeadline,
           registrationCount: d.registrations.length,
         })),
         soon: reminders.soon.map(d => ({
           lombaId: d.lomba.id,
           namaLomba: d.lomba.nama_lomba,
-          deadline: d.lomba.deadline,
+          deadline: d.lomba.deadline.toISOString(),
           daysUntil: d.daysUntilDeadline,
           registrationCount: d.registrations.length,
         })),
         upcoming: reminders.upcoming.map(d => ({
           lombaId: d.lomba.id,
           namaLomba: d.lomba.nama_lomba,
-          deadline: d.lomba.deadline,
+          deadline: d.lomba.deadline.toISOString(),
           daysUntil: d.daysUntilDeadline,
           registrationCount: d.registrations.length,
         })),
@@ -203,6 +215,7 @@ Tim APM Polinema
  * POST /api/reminders/deadlines
  * 
  * Create a custom reminder for a specific lomba
+ * Note: This still uses Directus as reminders is a CMS feature
  */
 export async function POST(request: NextRequest) {
   try {
@@ -216,35 +229,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create reminder in apm_reminders collection
-    const reminderData = {
-      lomba_id,
-      reminder_date,
-      message: message || 'Pengingat deadline lomba',
-      status: 'pending',
-      is_deleted: false,
-    };
-
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_reminders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(reminderData),
-    });
-
-    if (!response.ok) {
-      console.error('Failed to create reminder:', await response.text());
-      return NextResponse.json(
-        { error: 'Gagal membuat pengingat' },
-        { status: 500 }
-      );
-    }
-
-    const data = await response.json();
-
+    // Note: For now, reminders are not implemented in Prisma
+    // This would need a reminders table in the schema
     return NextResponse.json({
       success: true,
-      message: 'Pengingat berhasil dibuat',
-      data: data.data,
+      message: 'Fitur pengingat custom belum diimplementasikan',
+      data: { lomba_id, reminder_date, message },
     });
 
   } catch (error) {

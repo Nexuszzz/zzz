@@ -2,13 +2,12 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Breadcrumb, Button, Badge } from '@/components/ui';
 import { Calendar, ArrowLeft, MapPin, Clock, ArrowRight } from 'lucide-react';
+import { prisma } from '@/lib/prisma/client';
 
 export const metadata: Metadata = {
     title: 'Jadwal Pameran | APM Polinema',
     description: 'Jadwal pameran dan expo yang akan datang',
 };
-
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
 interface ExpoItem {
     id: string;
@@ -22,27 +21,32 @@ interface ExpoItem {
 
 async function getUpcomingExpos(): Promise<ExpoItem[]> {
     try {
-        const params = new URLSearchParams();
-        params.set('limit', '10');
-        params.set('sort', 'tanggal_mulai');
-        params.set('filter', JSON.stringify({ status: { _in: ['upcoming', 'ongoing'] } }));
-        params.set('fields', 'id,slug,nama_event,tanggal_mulai,tanggal_selesai,lokasi,status');
-
-        const res = await fetch(`${DIRECTUS_URL}/items/apm_expo?${params.toString()}`, {
-            next: { revalidate: 60 },
+        const expoData = await prisma.expo.findMany({
+            where: {
+                is_deleted: false,
+                status: { in: ['upcoming', 'ongoing'] },
+            },
+            orderBy: { tanggal_mulai: 'asc' },
+            take: 10,
+            select: {
+                id: true,
+                slug: true,
+                nama_event: true,
+                tanggal_mulai: true,
+                tanggal_selesai: true,
+                lokasi: true,
+                status: true,
+            },
         });
 
-        if (!res.ok) return [];
-        const data = await res.json();
-
-        return (data.data || []).map((item: Record<string, unknown>) => ({
+        return expoData.map((item) => ({
             id: String(item.id),
-            slug: item.slug,
-            title: item.nama_event,
-            startDate: item.tanggal_mulai,
-            endDate: item.tanggal_selesai,
-            location: item.lokasi,
-            status: item.status,
+            slug: item.slug || '',
+            title: item.nama_event || '',
+            startDate: item.tanggal_mulai?.toISOString() || '',
+            endDate: item.tanggal_selesai?.toISOString() || '',
+            location: item.lokasi || '',
+            status: item.status || 'upcoming',
         }));
     } catch {
         return [];

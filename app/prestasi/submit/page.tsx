@@ -56,6 +56,7 @@ interface FormData {
   submitter_name: string;
   submitter_nim: string;
   submitter_email: string;
+  submitter_whatsapp: string;
 }
 
 export default function SubmitPrestasiPage() {
@@ -72,6 +73,7 @@ export default function SubmitPrestasiPage() {
     submitter_name: '',
     submitter_nim: '',
     submitter_email: '',
+    submitter_whatsapp: '',
   });
   const [sertifikat, setSertifikat] = useState<File | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
@@ -106,7 +108,13 @@ export default function SubmitPrestasiPage() {
     if (!formData.submitter_name.trim()) newErrors.submitter_name = 'Nama wajib diisi';
     if (!formData.submitter_nim.trim()) newErrors.submitter_nim = 'NIM wajib diisi';
     if (!formData.submitter_email.trim()) newErrors.submitter_email = 'Email wajib diisi';
+    if (!formData.submitter_whatsapp.trim()) newErrors.submitter_whatsapp = 'Nomor WhatsApp wajib diisi';
     if (!sertifikat) newErrors.sertifikat = 'Sertifikat wajib diupload';
+
+    // WhatsApp validation (Indonesian phone number)
+    if (formData.submitter_whatsapp && !/^(\+62|62|0)8[1-9][0-9]{7,11}$/.test(formData.submitter_whatsapp.replace(/[\s-]/g, ''))) {
+      newErrors.submitter_whatsapp = 'Format nomor WhatsApp tidak valid';
+    }
 
     // Email validation
     if (formData.submitter_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.submitter_email)) {
@@ -214,6 +222,7 @@ export default function SubmitPrestasiPage() {
                   submitter_name: '',
                   submitter_nim: '',
                   submitter_email: '',
+                  submitter_whatsapp: '',
                 });
                 setSertifikat(null);
                 setTeamMembers([{ nama: '', nim: '', role: 'ketua', angkatan: '' }]);
@@ -407,7 +416,7 @@ export default function SubmitPrestasiPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 label="Nama Lengkap"
                 value={formData.submitter_name}
@@ -432,6 +441,15 @@ export default function SubmitPrestasiPage() {
                 placeholder="email@student.ac.id"
                 required
                 error={errors.submitter_email}
+              />
+              <FormField
+                label="Nomor WhatsApp"
+                type="tel"
+                value={formData.submitter_whatsapp}
+                onChange={(e) => handleChange('submitter_whatsapp', e.target.value)}
+                placeholder="08xxxxxxxxxx"
+                required
+                error={errors.submitter_whatsapp}
               />
             </div>
           </div>

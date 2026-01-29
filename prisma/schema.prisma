@@ -1,0 +1,372 @@
+// APM Portal - Prisma Schema
+// Database: PostgreSQL (same instance as Directus)
+// 
+// Tables:
+// - Admin (custom auth)
+// - Lomba + LombaRegistration
+// - Expo + ExpoSettings + ExpoRegistration
+// - PrestasiSubmission + PrestasiTeamMember + PrestasiPembimbing + PrestasiDocument + Prestasi
+// - CalendarEvent
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// ADMIN & AUTH
+// ============================================
+
+model Admin {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password_hash String
+  name          String
+  role          String    @default("admin") // admin, superadmin
+  is_active     Boolean   @default(true)
+  last_login    DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@index([email])
+  @@map("apm_admins")
+}
+
+// ============================================
+// LOMBA
+// ============================================
+
+model Lomba {
+  id                  Int       @id @default(autoincrement())
+  nama_lomba          String
+  slug                String    @unique
+  deskripsi           String?   @db.Text
+  kategori            String
+  tingkat             String    // regional, nasional, internasional
+
+  deadline            DateTime?
+  tanggal_pelaksanaan DateTime?
+
+  penyelenggara       String?
+  lokasi              String?
+
+  // Registration Type
+  sumber              String    @default("internal") // internal, eksternal
+  tipe_pendaftaran    String    @default("internal") // internal, eksternal, none
+  link_pendaftaran    String?   // For external registration
+  custom_form         Json?     // FormFieldDefinition[] for internal registration
+
+  // Details
+  syarat_ketentuan    String?   @db.Text
+  hadiah              Json?     // Array of prizes
+  biaya               Int       @default(0)
+  kontak_panitia      Json?     // {email, phone, website}
+
+  // Display
+  poster              String?   // File path/URL
+  tags                Json?     // Array of tags
+  is_featured         Boolean   @default(false)
+  is_urgent           Boolean   @default(false)
+
+  // Status
+  status              String    @default("draft") // draft, open, closed
+  is_deleted          Boolean   @default(false)
+
+  // Timestamps
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  // Relations
+  registrations       LombaRegistration[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([deadline])
+  @@map("apm_lomba")
+}
+
+model LombaRegistration {
+  id            Int       @id @default(autoincrement())
+  lomba_id      Int
+
+  // Required fields
+  nama          String
+  nim           String
+  email         String
+  whatsapp      String    // WAJIB - untuk dihubungi pengurus
+  fakultas      String
+  prodi         String
+
+  // Custom form data
+  custom_data   Json?     // Data dari custom form builder
+
+  // Status - langsung masuk tanpa verifikasi
+  status        String    @default("registered") // registered
+
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  lomba         Lomba     @relation(fields: [lomba_id], references: [id], onDelete: Cascade)
+
+  @@index([lomba_id])
+  @@index([email])
+  @@index([nim])
+  @@map("apm_lomba_registrations")
+}
+
+// ============================================
+// EXPO
+// ============================================
+
+model ExpoSettings {
+  id                Int       @id @default(1)
+  is_active         Boolean   @default(true)
+  inactive_message  String?   @default("Belum ada expo saat ini. Nantikan update selanjutnya!") // Bisa diubah admin
+  next_expo_date    DateTime?
+  updated_at        DateTime  @updatedAt
+
+  @@map("apm_expo_settings")
+}
+
+model Expo {
+  id                    Int       @id @default(autoincrement())
+  nama_event            String
+  slug                  String    @unique
+  tema                  String?
+  deskripsi             String?   @db.Text
+
+  tanggal_mulai         DateTime
+  tanggal_selesai       DateTime
+
+  lokasi                String
+  alamat_lengkap        String?
+
+  // Registration Type
+  tipe_pendaftaran      String    @default("none") // internal, eksternal, none
+  link_pendaftaran      String?
+  custom_form           Json?     // FormFieldDefinition[]
+
+  // Registration Settings
+  registration_open     Boolean   @default(false)
+  registration_deadline DateTime?
+  max_participants      Int?
+  biaya_partisipasi     Int       @default(0)
+
+  // Content
+  highlights            Json?     // Array of highlight items
+  rundown               Json?     // Event schedule
+  galeri                Json?     // Photo gallery
+  benefit               String?   @db.Text
+  website_resmi         String?
+
+  // Display
+  poster                String?
+  is_featured           Boolean   @default(false)
+
+  // Status
+  status                String    @default("upcoming") // upcoming, ongoing, completed
+  is_deleted            Boolean   @default(false)
+
+  // Timestamps
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  // Relations
+  registrations         ExpoRegistration[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("apm_expo")
+}
+
+model ExpoRegistration {
+  id            Int       @id @default(autoincrement())
+  expo_id       Int
+
+  nama          String
+  nim           String
+  email         String
+  whatsapp      String    // WAJIB - untuk dihubungi pengurus
+
+  project_name  String?
+  project_desc  String?   @db.Text
+
+  custom_data   Json?     // Data dari custom form builder
+
+  // Status - langsung masuk tanpa verifikasi
+  status        String    @default("registered") // registered
+
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  expo          Expo      @relation(fields: [expo_id], references: [id], onDelete: Cascade)
+
+  @@index([expo_id])
+  @@index([email])
+  @@index([nim])
+  @@map("apm_expo_registrations")
+}
+
+// ============================================
+// PRESTASI
+// ============================================
+
+model PrestasiSubmission {
+  id                Int       @id @default(autoincrement())
+
+  // Info Prestasi
+  judul             String
+  nama_lomba        String
+  penyelenggara     String?
+  tingkat           String    // regional, nasional, internasional
+  peringkat         String
+  tanggal           DateTime?
+  kategori          String?
+  deskripsi         String?   @db.Text
+
+  // Submitter dengan WhatsApp wajib
+  submitter_name      String
+  submitter_nim       String
+  submitter_email     String
+  submitter_whatsapp  String    // WAJIB - untuk dihubungi pengurus
+
+  // Status
+  status            String    @default("pending") // pending, approved, rejected
+  reviewer_notes    String?   @db.Text
+  reviewed_at       DateTime?
+  reviewed_by       Int?
+
+  // Timestamps
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  // Relations
+  team_members      PrestasiTeamMember[]
+  pembimbing        PrestasiPembimbing[]
+  documents         PrestasiDocument[]
+  published         Prestasi?
+
+  @@index([status])
+  @@index([submitter_nim])
+  @@map("apm_prestasi_submissions")
+}
+
+model PrestasiTeamMember {
+  id            Int       @id @default(autoincrement())
+  submission_id Int
+  nama          String
+  nim           String
+  prodi         String?
+  angkatan      String?
+  whatsapp      String?   // Minimal 1 anggota harus punya WhatsApp
+  is_ketua      Boolean   @default(false)
+
+  submission    PrestasiSubmission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
+
+  @@index([submission_id])
+  @@map("apm_prestasi_team_members")
+}
+
+model PrestasiPembimbing {
+  id            Int       @id @default(autoincrement())
+  submission_id Int
+  nama          String
+  nidn          String?
+  whatsapp      String?   // WhatsApp pembimbing (wajib jika ada pembimbing)
+
+  submission    PrestasiSubmission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
+
+  @@index([submission_id])
+  @@map("apm_prestasi_pembimbing")
+}
+
+model PrestasiDocument {
+  id            Int       @id @default(autoincrement())
+  submission_id Int
+  type          String    // sertifikat, dokumentasi, surat_pendukung
+  label         String?   // Label bebas untuk surat (mis: "Surat Tugas", "SK Rektor")
+  file_path     String
+  file_name     String
+  file_type     String    // pdf, jpg, png
+  file_size     Int
+
+  submission    PrestasiSubmission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
+
+  @@index([submission_id])
+  @@index([type])
+  @@map("apm_prestasi_documents")
+}
+
+model Prestasi {
+  id            Int       @id @default(autoincrement())
+  submission_id Int       @unique
+
+  // Display info (bisa berbeda dari submission)
+  judul               String
+  slug                String    @unique
+  nama_lomba          String
+  tingkat             String
+  peringkat           String
+  tahun               Int
+  kategori            String?
+  deskripsi           String?   @db.Text
+
+  // Media (dipilih oleh admin)
+  thumbnail           String?   // Main photo
+  galeri              Json?     // Array of photo paths
+
+  // Sertifikat - configurable visibility!
+  sertifikat          String?   // Path ke file
+  sertifikat_public   Boolean   @default(false) // Bisa publik atau admin-only
+
+  // Links
+  link_berita         String?
+  link_portofolio     String?
+
+  // Display settings
+  is_featured         Boolean   @default(false)
+  is_published        Boolean   @default(true)
+
+  // Timestamps
+  published_at        DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  // Relations
+  submission          PrestasiSubmission @relation(fields: [submission_id], references: [id])
+
+  @@index([slug])
+  @@index([tahun])
+  @@index([is_published])
+  @@map("apm_prestasi")
+}
+
+// ============================================
+// CALENDAR
+// ============================================
+
+model CalendarEvent {
+  id            Int       @id @default(autoincrement())
+
+  title         String
+  description   String?
+  type          String    @default("event") // event, meeting, announcement, dll
+  color         String?   @default("#3B82F6") // Hex color untuk display
+
+  start_date    DateTime
+  end_date      DateTime?
+  all_day       Boolean   @default(true)
+
+  link          String?   // Link ke detail (optional)
+
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@index([start_date])
+  @@index([is_active])
+  @@map("apm_calendar_events")
+}

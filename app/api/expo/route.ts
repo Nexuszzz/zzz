@@ -1,99 +1,114 @@
 ﻿/**
- * API Route: Get Expo List
- * GET /api/expo
+ * Public Expo API
+ * 
+ * GET /api/expo - Get list of public expo events
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma/client'
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
-    const status = searchParams.get('status');
-    const featured = searchParams.get('featured') === 'true';
-    const search = searchParams.get('search');
-    const slug = searchParams.get('slug');
-    const customFields = searchParams.get('fields');
+    const { searchParams } = new URL(request.url)
 
-    // Build filter
-    const filter: Record<string, unknown> = {
-      is_deleted: { _eq: false },
-    };
-    
-    if (slug) filter.slug = { _eq: slug };
-    if (status) filter.status = { _eq: status };
-    if (featured) filter.is_featured = { _eq: true };
-    if (search) {
-      filter._or = [
-        { nama_event: { _icontains: search } },
-        { tema: { _icontains: search } },
-      ];
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '12')
+    const status = searchParams.get('status')
+    const featured = searchParams.get('featured') === 'true'
+    const search = searchParams.get('search')
+    const slug = searchParams.get('slug')
+
+    // Build where clause
+    const where: Record<string, unknown> = {
+      is_deleted: false,
     }
 
-    // Build URL params
-    const params = new URLSearchParams();
-    params.set('limit', limit.toString());
-    params.set('offset', ((page - 1) * limit).toString());
-    params.set('sort', '-tanggal_mulai');
-    params.set('fields', customFields || 'id,nama_event,slug,tema,tanggal_mulai,tanggal_selesai,lokasi,poster,biaya_partisipasi,is_featured,status,deskripsi,registration_open,registration_deadline,max_participants');
-    
-    if (Object.keys(filter).length > 0) {
-      params.set('filter', JSON.stringify(filter));
-    }
-
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_expo?${params.toString()}`, {
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Directus error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    // Helper function for date formatting
-    const formatTanggal = (start: string, end?: string) => {
-      const startDate = new Date(start);
-      const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+    if (slug) {
+      where.slug = slug
+    } else {
+      if (status) where.status = status
+      if (featured) where.is_featured = true
       
-      if (end && end !== start) {
-        const endDate = new Date(end);
-        return `${startDate.toLocaleDateString('id-ID', { day: 'numeric' })}-${endDate.toLocaleDateString('id-ID', opts)}`;
+      if (search) {
+        where.OR = [
+          { nama_event: { contains: search, mode: 'insensitive' } },
+          { tema: { contains: search, mode: 'insensitive' } },
+        ]
       }
-      return startDate.toLocaleDateString('id-ID', opts);
-    };
-    
-    // Transform data for frontend
-    const data = result.data.map((item: Record<string, unknown>) => ({
+    }
+
+    // Query expo - always select all fields for simplicity
+    const [expoList, total] = await Promise.all([
+      prisma.expo.findMany({
+        where: where as any,
+        orderBy: { tanggal_mulai: 'desc' },
+        skip: slug ? 0 : (page - 1) * limit,
+        take: slug ? 1 : limit,
+      }),
+      slug ? Promise.resolve(1) : prisma.expo.count({ where: where as any }),
+    ])
+
+    // Helper function for date formatting
+    const formatTanggal = (start: Date, end?: Date) => {
+      const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
+      
+      if (end && end.getTime() !== start.getTime()) {
+        return `${start.toLocaleDateString('id-ID', { day: 'numeric' })}-${end.toLocaleDateString('id-ID', opts)}`
+      }
+      return start.toLocaleDateString('id-ID', opts)
+    }
+
+    // Transform data for frontend compatibility
+    const data = expoList.map((item) => ({
       id: item.id,
       slug: item.slug,
       title: item.nama_event,
-      tema: item.tema,
-      tanggal: formatTanggal(item.tanggal_mulai as string, item.tanggal_selesai as string | undefined),
-      tanggalMulai: item.tanggal_mulai,
-      tanggalSelesai: item.tanggal_selesai,
+      nama_event: item.nama_event,
+      tema: item.tema || '',
+      tanggal: formatTanggal(item.tanggal_mulai, item.tanggal_selesai),
+      tanggalMulai: item.tanggal_mulai.toISOString(),
+      tanggalSelesai: item.tanggal_selesai.toISOString(),
       lokasi: item.lokasi,
-      deskripsi: item.deskripsi,
+      deskripsi: item.deskripsi || '',
       isFree: item.biaya_partisipasi === 0,
       isFeatured: item.is_featured,
       status: item.status,
-      posterUrl: item.poster ? `${DIRECTUS_URL}/assets/${item.poster}?width=400` : null,
-      registrationOpen: item.registration_open ?? false,
-      registrationDeadline: item.registration_deadline,
-      maxParticipants: item.max_participants,
-    }));
+      posterUrl: item.poster || null,
+      registrationOpen: item.registration_open,
+      // Detail fields (always included)
+      alamatLengkap: item.alamat_lengkap || '',
+      tipe_pendaftaran: item.tipe_pendaftaran,
+      link_pendaftaran: item.link_pendaftaran || null,
+      custom_form: item.custom_form,
+      registration_deadline: item.registration_deadline?.toISOString() || null,
+      max_participants: item.max_participants,
+      biaya_partisipasi: item.biaya_partisipasi,
+      highlights: item.highlights,
+      rundown: item.rundown,
+      galeri: item.galeri,
+      benefit: item.benefit || '',
+      website_resmi: item.website_resmi || null,
+    }))
 
-    return NextResponse.json({ data });
+    return NextResponse.json({
+      success: true,
+      data,
+      pagination: slug ? undefined : {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
-    console.error('Error fetching expo:', error);
+    console.error('Error fetching expo:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch expo' },
+      { success: false, error: 'Gagal mengambil data expo' },
       { status: 500 }
-    );
+    )
   }
 }
 

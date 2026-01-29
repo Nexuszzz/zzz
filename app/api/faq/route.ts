@@ -5,6 +5,8 @@
 
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
 const staticFaq = [
@@ -53,7 +55,7 @@ export async function GET() {
         params.set('filter', JSON.stringify({ status: { _eq: 'published' } }));
         params.set('fields', 'id,pertanyaan,jawaban,urutan');
 
-        const response = await fetch(`${DIRECTUS_URL}/items/apm_faq?${params.toString()}`, {
+        const response = await fetch(`${DIRECTUS_URL}/items/faq?${params.toString()}`, {
             next: { revalidate: 60 },
         });
 

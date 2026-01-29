@@ -1,236 +1,208 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { validateAdminAuth, getAuthToken } from '@/lib/auth';
+/**
+ * Lomba Admin API - CRUD Operations
+ * 
+ * GET  /api/admin/lomba - List all lomba with pagination & filtering
+ * POST /api/admin/lomba - Create new lomba
+ */
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma/client'
+import { requireAuth } from '@/lib/auth/jwt'
+import { generateSlug, calculatePagination } from '@/lib/api/helpers'
 
+/**
+ * GET /api/admin/lomba
+ * List all lomba with pagination, filtering, and search
+ */
 export async function GET(request: NextRequest) {
   try {
-    const token = getAuthToken(request);
-    const { searchParams } = new URL(request.url);
+    // Verify authentication
+    const session = await requireAuth(request)
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
 
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const search = searchParams.get('search');
-    const status = searchParams.get('status');
-    const kategori = searchParams.get('kategori');
-    const includeDeleted = searchParams.get('includeDeleted') === 'true';
+    // Parse query parameters
+    const searchParams = request.nextUrl.searchParams
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const search = searchParams.get('search') || ''
+    const kategori = searchParams.get('kategori') || ''
+    const tingkat = searchParams.get('tingkat') || ''
+    const status = searchParams.get('status') || ''
+    const sort = searchParams.get('sort') || 'created_at'
+    const order = (searchParams.get('order') || 'desc') as 'asc' | 'desc'
 
-    // Build filter - NOTE: is_deleted field doesn't exist in current schema, removed filter
-    const filter: Record<string, unknown> = {};
-    // Removed is_deleted filter as field doesn't exist in Directus schema
-    if (status) filter.status = { _eq: status };
-    if (kategori) filter.kategori = { _eq: kategori };
+    // Build where clause
+    const where: {
+      is_deleted?: boolean
+      OR?: Array<Record<string, unknown>>
+      kategori?: string
+      tingkat?: string
+      status?: string
+    } = {
+      is_deleted: false,
+    }
+
     if (search) {
-      filter._or = [
-        { nama_lomba: { _icontains: search } },
-        { penyelenggara: { _icontains: search } },
-      ];
+      where.OR = [
+        { nama_lomba: { contains: search, mode: 'insensitive' } },
+        { penyelenggara: { contains: search, mode: 'insensitive' } },
+        { deskripsi: { contains: search, mode: 'insensitive' } },
+      ]
     }
 
-    // Build params
-    const params = new URLSearchParams();
-    params.set('limit', limit.toString());
-    params.set('offset', ((page - 1) * limit).toString());
-    params.set('sort', '-date_created');
-    // Use correct field names that match Directus schema
-    params.set('fields', 'id,nama_lomba,slug,kategori,tingkat,penyelenggara,deadline,tanggal_pelaksanaan,status,is_featured,date_created,poster');
+    if (kategori) where.kategori = kategori
+    if (tingkat) where.tingkat = tingkat
+    if (status) where.status = status
 
-    if (Object.keys(filter).length > 0) {
-      params.set('filter', JSON.stringify(filter));
-    }
+    // Get total count
+    const total = await prisma.lomba.count({ where })
 
-    const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_lomba?${params.toString()}`, {
-      headers,
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = 'Failed to fetch lomba';
-      let errorDetails = null;
-
-      try {
-        const errorData = JSON.parse(errorText);
-        if (errorData.errors?.[0]?.message?.includes('not exist')) {
-          errorMessage = 'Collection apm_lomba belum tersedia. Jalankan: npx ts-node scripts/setup-directus.ts';
-          errorDetails = 'directus_collection_missing';
-        } else if (errorData.errors?.[0]?.message?.includes('permission')) {
-          errorMessage = 'Tidak memiliki izin untuk mengakses data lomba. Cek permission di Directus Admin.';
-          errorDetails = 'directus_permission_denied';
+    // Get paginated data
+    const data = await prisma.lomba.findMany({
+      where,
+      orderBy: { [sort]: order },
+      skip: (page - 1) * limit,
+      take: limit,
+      include: {
+        _count: {
+          select: { registrations: true }
         }
-      } catch {
-        // Keep original error message
-      }
+      },
+    })
 
-      return NextResponse.json(
-        { error: errorMessage, details: errorDetails },
-        { status: response.status }
-      );
-    }
-
-    const result = await response.json();
-
-    // Use public Directus URL for asset URLs (browser accessible)
-    const publicDirectusUrl = process.env.NEXT_PUBLIC_DIRECTUS_URL || DIRECTUS_URL;
-
-    // Transform data - use correct field names from Directus schema
-    const data = result.data.map((item: Record<string, unknown>) => ({
+    // Transform for response - map DB fields to API fields
+    const transformedData = data.map(item => ({
       id: item.id,
-      namaLomba: item.nama_lomba,
+      nama_lomba: item.nama_lomba,
       slug: item.slug,
       kategori: item.kategori,
       tingkat: item.tingkat,
       penyelenggara: item.penyelenggara,
-      deadline: item.deadline, // Use 'deadline' not 'deadline_pendaftaran'
-      tanggalPelaksanaan: item.tanggal_pelaksanaan,
+      deadline_pendaftaran: item.deadline, // Map DB field to API field
+      tanggal_pelaksanaan: item.tanggal_pelaksanaan,
+      lokasi: item.lokasi,
       status: item.status,
-      isFeatured: item.is_featured,
-      dateCreated: item.date_created,
-      posterUrl: item.poster ? `${publicDirectusUrl}/assets/${item.poster}?width=100` : null,
-    }));
+      is_featured: item.is_featured,
+      is_urgent: item.is_urgent,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      registration_count: item._count.registrations,
+    }))
+
+    const pagination = calculatePagination(total, page, limit)
 
     return NextResponse.json({
-      data,
-      meta: {
-        total: result.meta?.filter_count || result.meta?.total_count || result.data?.length || 0,
-        page,
-        limit,
-        totalPages: Math.ceil((result.meta?.filter_count || result.meta?.total_count || result.data?.length || 0) / limit),
-      },
-    });
+      success: true,
+      data: transformedData,
+      meta: pagination,
+    })
   } catch (error) {
-    console.error('Error fetching lomba:', error);
+    console.error('Error fetching lomba:', error)
     return NextResponse.json(
-      {
-        error: 'Gagal mengambil data lomba. Pastikan Directus berjalan di http://localhost:8055',
-        details: 'connection_error'
-      },
+      { success: false, error: 'Gagal mengambil data lomba' },
       { status: 500 }
-    );
+    )
   }
 }
 
+/**
+ * POST /api/admin/lomba
+ * Create a new lomba
+ */
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await validateAdminAuth(request);
-    if (!authResult.valid) {
-      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+    // Verify authentication
+    const session = await requireAuth(request)
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
-    const token = authResult.token;
 
-    const body = await request.json();
+    // Parse request body
+    const body = await request.json()
+
+    // Basic validation
+    if (!body.nama_lomba || !body.kategori || !body.tingkat) {
+      return NextResponse.json(
+        { success: false, error: 'nama_lomba, kategori, dan tingkat wajib diisi' },
+        { status: 400 }
+      )
+    }
 
     // Generate slug if not provided
-    if (!body.slug) {
-      body.slug = body.nama_lomba
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .trim();
-    }
-
-    // Transform data to match Directus schema EXACTLY
-    // CRITICAL: Field names must match Directus schema, not form field names
-    const transformedData: Record<string, unknown> = {
-      nama_lomba: body.nama_lomba,
-      slug: body.slug,
-      kategori: body.kategori,
-      tingkat: body.tingkat,
-      penyelenggara: body.penyelenggara,
-      // IMPORTANT: Directus uses 'deadline', not 'deadline_pendaftaran'
-      deadline: body.deadline_pendaftaran,
-      tanggal_pelaksanaan: body.tanggal_pelaksanaan,
-      lokasi: body.lokasi || null,
-      deskripsi: body.deskripsi || null,
-      // IMPORTANT: Directus uses 'syarat_ketentuan', not 'persyaratan'
-      syarat_ketentuan: body.persyaratan || null,
-      link_pendaftaran: body.link_pendaftaran || null,
-      // IMPORTANT: Directus uses 'biaya', not 'biaya_pendaftaran'
-      biaya: body.biaya_pendaftaran || 0,
-      is_featured: body.is_featured || false,
-      is_urgent: false,
-      // Map status values: form uses 'upcoming/ongoing/closed', Directus uses 'open/closed/coming-soon'
-      status: body.status === 'upcoming' ? 'coming-soon' : (body.status === 'ongoing' ? 'open' : 'closed'),
-    };
-
-    // Transform hadiah to JSON array (Directus expects raw object/array, NOT stringified)
-    if (body.hadiah) {
-      if (typeof body.hadiah === 'string') {
-        // Try to parse if it's already JSON string
-        try {
-          transformedData.hadiah = JSON.parse(body.hadiah);
-        } catch {
-          // Convert plain text to JSON array format expected by Directus
-          transformedData.hadiah = [{
-            peringkat: 'Informasi Hadiah',
-            nominal: '',
-            keterangan: body.hadiah
-          }];
-        }
-      } else if (Array.isArray(body.hadiah)) {
-        // Already an array, use directly
-        transformedData.hadiah = body.hadiah;
-      } else {
-        // Wrap object in array
-        transformedData.hadiah = [body.hadiah];
+    let slug = body.slug
+    if (!slug) {
+      slug = generateSlug(body.nama_lomba)
+      
+      // Check for duplicate slug
+      const existingSlug = await prisma.lomba.findUnique({ where: { slug } })
+      if (existingSlug) {
+        slug = `${slug}-${Date.now()}`
       }
     } else {
-      transformedData.hadiah = null;
+      const existingSlug = await prisma.lomba.findUnique({ where: { slug } })
+      if (existingSlug) {
+        return NextResponse.json(
+          { success: false, error: 'Slug sudah digunakan' },
+          { status: 400 }
+        )
+      }
     }
 
-    // Transform kontak_panitia to JSON object (raw object, NOT stringified)
-    if (body.cp_nama || body.cp_whatsapp) {
-      transformedData.kontak_panitia = {
-        nama: body.cp_nama || '',
-        email: body.cp_email || '',
-        phone: body.cp_whatsapp || '',
-        whatsapp: body.cp_whatsapp || ''
-      };
-    } else {
-      transformedData.kontak_panitia = null;
-    }
-
-    // Set tags - raw array or null
-    if (body.tags && Array.isArray(body.tags)) {
-      transformedData.tags = body.tags;
-    } else if (typeof body.tags === 'string' && body.tags.trim()) {
-      transformedData.tags = body.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
-    } else {
-      transformedData.tags = null;
-    }
-
-    console.log('Transformed data for Directus:', JSON.stringify(transformedData, null, 2));
-
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_lomba`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+    // Create lomba - map API fields to DB fields
+    const lomba = await prisma.lomba.create({
+      data: {
+        nama_lomba: body.nama_lomba,
+        slug,
+        kategori: body.kategori,
+        tingkat: body.tingkat,
+        penyelenggara: body.penyelenggara || null,
+        // Map API field to DB field
+        deadline: body.deadline_pendaftaran ? new Date(body.deadline_pendaftaran) : (body.deadline ? new Date(body.deadline) : null),
+        tanggal_pelaksanaan: body.tanggal_pelaksanaan ? new Date(body.tanggal_pelaksanaan) : null,
+        lokasi: body.lokasi || null,
+        deskripsi: body.deskripsi || null,
+        // Map API field to DB field
+        syarat_ketentuan: body.persyaratan || body.syarat_ketentuan || null,
+        hadiah: body.hadiah || null,
+        link_pendaftaran: body.link_pendaftaran || null,
+        // Map API field to DB field
+        biaya: body.biaya_pendaftaran ?? body.biaya ?? 0,
+        kontak_panitia: body.kontak_panitia || null,
+        // Map API field to DB field
+        poster: body.poster_url || body.poster || null,
+        tags: body.tags || null,
+        status: body.status || 'draft',
+        is_featured: body.is_featured || false,
+        is_urgent: body.is_urgent || false,
+        // Map API field to DB field
+        custom_form: body.form_config || body.custom_form || null,
+        sumber: body.sumber || 'internal',
+        tipe_pendaftaran: body.tipe_pendaftaran || 'internal',
       },
-      body: JSON.stringify(transformedData),
-    });
+    })
 
-    if (!response.ok) {
-      const error = await response.json();
-      const errorMessage = error.errors?.[0]?.message || 'Failed to create lomba';
-      console.error('Directus API Error:', JSON.stringify(error, null, 2));
-      throw new Error(errorMessage);
+    // Transform response
+    const response = {
+      ...lomba,
+      deadline_pendaftaran: lomba.deadline,
+      persyaratan: lomba.syarat_ketentuan,
+      biaya_pendaftaran: lomba.biaya,
+      poster_url: lomba.poster,
+      form_config: lomba.custom_form,
     }
 
-    const result = await response.json();
-    return NextResponse.json({ data: result.data });
-  } catch (error) {
-    console.error('Error creating lomba:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create lomba' },
+      { success: true, data: response, message: 'Lomba berhasil dibuat' },
+      { status: 201 }
+    )
+  } catch (error) {
+    console.error('Error creating lomba:', error)
+    return NextResponse.json(
+      { success: false, error: 'Gagal membuat lomba' },
       { status: 500 }
-    );
+    )
   }
 }
 

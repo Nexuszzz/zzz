@@ -1,138 +1,198 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateAdminAuth, getAuthToken } from '@/lib/auth';
+/**
+ * Prestasi Submission Admin API - Single Item Operations
+ * 
+ * GET    /api/admin/prestasi/[id] - Get single submission
+ * PATCH  /api/admin/prestasi/[id] - Review/update submission
+ * DELETE /api/admin/prestasi/[id] - Delete submission
+ */
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+import { NextRequest } from 'next/server'
+import { prisma } from '@/lib/prisma/client'
+import { requireAuth } from '@/lib/auth/jwt'
+import { reviewSubmissionSchema } from '@/lib/validations/prestasi'
+import {
+  successResponse,
+  errorResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+  generateSlug,
+  validationErrorFromZod,
+} from '@/lib/api/helpers'
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
+/**
+ * GET /api/admin/prestasi/[id]
+ * Get a single prestasi submission with all details
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const token = getAuthToken(request);
-    const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    const session = await requireAuth(request)
+    if (!session) {
+      return unauthorizedResponse()
     }
 
-    // Get prestasi with team members
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_prestasi/${params.id}?fields=*,tim_anggota.*`, {
-      headers,
-      cache: 'no-store',
-    });
+    const { id } = await params
+    const submissionId = parseInt(id, 10)
+    
+    if (isNaN(submissionId)) {
+      return errorResponse('ID Submission tidak valid', 400)
+    }
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        return NextResponse.json({ error: 'Prestasi tidak ditemukan' }, { status: 404 });
+    const submission = await prisma.prestasiSubmission.findUnique({
+      where: { id: submissionId },
+      include: {
+        team_members: true,
+        pembimbing: true,
+        documents: true,
+        published: true,
+      },
+    })
+
+    if (!submission) {
+      return notFoundResponse('Submission tidak ditemukan')
+    }
+
+    return successResponse(submission)
+  } catch (error) {
+    console.error('Error fetching prestasi submission:', error)
+    return errorResponse('Gagal mengambil data prestasi')
+  }
+}
+
+/**
+ * PATCH /api/admin/prestasi/[id]
+ * Review/update a prestasi submission
+ */
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await requireAuth(request)
+    if (!session) {
+      return unauthorizedResponse()
+    }
+
+    const { id } = await params
+    const submissionId = parseInt(id, 10)
+    
+    if (isNaN(submissionId)) {
+      return errorResponse('ID Submission tidak valid', 400)
+    }
+
+    const submission = await prisma.prestasiSubmission.findUnique({
+      where: { id: submissionId },
+    })
+
+    if (!submission) {
+      return notFoundResponse('Submission tidak ditemukan')
+    }
+
+    const body = await request.json()
+    const validation = reviewSubmissionSchema.safeParse(body)
+    
+    if (!validation.success) {
+      return validationErrorFromZod(validation.error.issues)
+    }
+
+    const data = validation.data
+
+    // Update submission status
+    const updated = await prisma.prestasiSubmission.update({
+      where: { id: submissionId },
+      data: {
+        status: data.status,
+        reviewer_notes: data.reviewer_notes || null,
+        reviewed_at: new Date(),
+        reviewed_by: session.id,
+      },
+    })
+
+    // If approved and make_public is true, create published prestasi
+    if (data.status === 'approved' && data.make_public) {
+      // Check if already published
+      const existingPublished = await prisma.prestasi.findUnique({
+        where: { submission_id: submissionId },
+      })
+
+      if (!existingPublished) {
+        // Generate slug
+        let slug = generateSlug(submission.judul)
+        const existingSlug = await prisma.prestasi.findUnique({ where: { slug } })
+        if (existingSlug) {
+          slug = `${slug}-${Date.now()}`
+        }
+
+        // Create published prestasi
+        await prisma.prestasi.create({
+          data: {
+            submission_id: submissionId,
+            judul: submission.judul,
+            slug,
+            nama_lomba: submission.nama_lomba,
+            tingkat: submission.tingkat,
+            peringkat: submission.peringkat,
+            tahun: submission.tanggal ? new Date(submission.tanggal).getFullYear() : new Date().getFullYear(),
+            kategori: submission.kategori,
+            deskripsi: submission.deskripsi,
+            sertifikat_public: data.sertifikat_public || false,
+            is_featured: false,
+            is_published: true,
+          },
+        })
       }
-      throw new Error(`Directus error: ${response.status}`);
     }
 
-    const result = await response.json();
-    const item = result.data;
+    // If rejected, unpublish if exists
+    if (data.status === 'rejected') {
+      await prisma.prestasi.deleteMany({
+        where: { submission_id: submissionId },
+      })
+    }
 
-    // Transform response
-    const data = {
-      id: item.id,
-      namaPrestasi: item.judul,
-      namaLomba: item.nama_lomba,
-      tingkat: item.tingkat,
-      peringkat: item.peringkat,
-      tanggal: item.tanggal,
-      sertifikatUrl: item.sertifikat ? `${DIRECTUS_URL}/assets/${item.sertifikat}` : null,
-      status: item.status,
-      reviewerNotes: item.reviewer_notes,
-      verifiedAt: item.verified_at,
-      submitterName: item.submitter_name,
-      submitterNim: item.submitter_nim,
-      submitterEmail: item.submitter_email,
-      dateCreated: item.date_created,
-      timAnggota: item.tim_anggota || [],
-    };
-
-    return NextResponse.json({ data });
+    return successResponse(updated)
   } catch (error) {
-    console.error('Error fetching prestasi:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch prestasi' },
-      { status: 500 }
-    );
+    console.error('Error updating prestasi submission:', error)
+    return errorResponse('Gagal memperbarui prestasi')
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+/**
+ * DELETE /api/admin/prestasi/[id]
+ * Delete a prestasi submission
+ */
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const authResult = await validateAdminAuth(request);
-    if (!authResult.valid) {
-      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
-    }
-    const token = authResult.token;
-
-    const body = await request.json();
-
-    // If status is changing to verified, add verified_at timestamp
-    if (body.status === 'verified') {
-      body.verified_at = new Date().toISOString();
+    const session = await requireAuth(request)
+    if (!session) {
+      return unauthorizedResponse()
     }
 
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_prestasi/${params.id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.errors?.[0]?.message || 'Failed to update prestasi');
+    if (session.role !== 'superadmin') {
+      return errorResponse('Hanya superadmin yang dapat menghapus prestasi', 403)
     }
 
-    const result = await response.json();
-    return NextResponse.json({ data: result.data });
+    const { id } = await params
+    const submissionId = parseInt(id, 10)
+    
+    if (isNaN(submissionId)) {
+      return errorResponse('ID Submission tidak valid', 400)
+    }
+
+    const submission = await prisma.prestasiSubmission.findUnique({
+      where: { id: submissionId },
+    })
+
+    if (!submission) {
+      return notFoundResponse('Submission tidak ditemukan')
+    }
+
+    // Delete submission (cascades to team_members, pembimbing, documents)
+    await prisma.prestasiSubmission.delete({ where: { id: submissionId } })
+
+    return successResponse({ message: 'Prestasi berhasil dihapus' })
   } catch (error) {
-    console.error('Error updating prestasi:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update prestasi' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const authResult = await validateAdminAuth(request);
-    if (!authResult.valid) {
-      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
-    }
-    const token = authResult.token;
-
-    // Soft delete
-    const response = await fetch(`${DIRECTUS_URL}/items/apm_prestasi/${params.id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ is_deleted: true }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to delete prestasi');
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting prestasi:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to delete prestasi' },
-      { status: 500 }
-    );
+    console.error('Error deleting prestasi submission:', error)
+    return errorResponse('Gagal menghapus prestasi')
   }
 }

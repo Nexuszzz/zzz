@@ -5,6 +5,8 @@
 
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
 // Static fallback data
@@ -58,7 +60,7 @@ export async function GET() {
         params.set('filter', JSON.stringify({ status: { _eq: 'published' } }));
         params.set('fields', 'id,judul,deskripsi,format,kategori,file');
 
-        const response = await fetch(`${DIRECTUS_URL}/items/apm_templates?${params.toString()}`, {
+        const response = await fetch(`${DIRECTUS_URL}/items/templates?${params.toString()}`, {
             next: { revalidate: 60 },
         });
 

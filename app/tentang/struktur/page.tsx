@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 // Data Struktur Organisasi APM Polinema
-// TODO: Fetch from Directus apm_tim collection
+// TODO: Fetch from Directus team_members collection
 const strukturOrganisasi = {
     pembina: {
         nama: 'Lorem Ipsum Dolor, S.T.',

@@ -1,45 +1,26 @@
 import { Trophy, Calendar, Medal, Users, TrendingUp, ArrowUpRight, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
-
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+import { prisma } from '@/lib/prisma/client';
 
 async function getStats() {
   try {
-    // Removed is_deleted filter from all queries - field doesn't exist in current schema
-    const [lombaRes, expoRes, prestasiRes, registrasiRes, messagesRes] = await Promise.all([
-      fetch(`${DIRECTUS_URL}/items/apm_lomba?aggregate[count]=*`, { cache: 'no-store' }),
-      fetch(`${DIRECTUS_URL}/items/apm_expo?aggregate[count]=*`, { cache: 'no-store' }),
-      fetch(`${DIRECTUS_URL}/items/apm_prestasi?aggregate[count]=*`, { cache: 'no-store' }),
-      fetch(`${DIRECTUS_URL}/items/apm_expo_registrations?aggregate[count]=*`, { cache: 'no-store' }),
-      fetch(`${DIRECTUS_URL}/items/apm_messages?aggregate[count]=*&filter[status][_eq]=unread`, { cache: 'no-store' }),
+    const [lombaCount, expoCount, prestasiCount, registrasiCount] = await Promise.all([
+      prisma.lomba.count({ where: { is_deleted: false } }),
+      prisma.expo.count({ where: { is_deleted: false } }),
+      prisma.prestasi.count({ where: { is_published: true } }),
+      // Count all registrations (lomba + expo)
+      Promise.all([
+        prisma.lombaRegistration.count(),
+        prisma.expoRegistration.count(),
+      ]).then(([lr, er]) => lr + er),
     ]);
-
-    // Log responses for debugging
-    const responses = [lombaRes, expoRes, prestasiRes, registrasiRes, messagesRes];
-    responses.forEach((res, idx) => {
-      if (!res.ok) console.error(`Stats fetch ${idx} failed:`, res.status);
-    });
-
-    const [lombaData, expoData, prestasiData, registrasiData, messagesData] = await Promise.all([
-      lombaRes.json(),
-      expoRes.json(),
-      prestasiRes.json(),
-      registrasiRes.json(),
-      messagesRes.json(),
-    ]);
-
-    console.log('Dashboard stats:', {
-      lomba: lombaData,
-      expo: expoData,
-      prestasi: prestasiData,
-    });
 
     return {
-      lomba: lombaData.data?.[0]?.count || 0,
-      expo: expoData.data?.[0]?.count || 0,
-      prestasi: prestasiData.data?.[0]?.count || 0,
-      registrasi: registrasiData.data?.[0]?.count || 0,
-      unreadMessages: messagesData.data?.[0]?.count || 0,
+      lomba: lombaCount,
+      expo: expoCount,
+      prestasi: prestasiCount,
+      registrasi: registrasiCount,
+      unreadMessages: 0, // TODO: Implement messages table
     };
   } catch (error) {
     console.error('Error fetching stats:', error);
@@ -49,13 +30,24 @@ async function getStats() {
 
 async function getRecentPrestasi() {
   try {
-    // Removed is_deleted filter - field doesn't exist in current schema
-    const res = await fetch(
-      `${DIRECTUS_URL}/items/apm_prestasi?limit=5&sort=-date_created&fields=id,nama_prestasi,nama_lomba,tingkat,status,submitter_name,date_created`,
-      { cache: 'no-store' }
-    );
-    const data = await res.json();
-    return data.data || [];
+    const prestasi = await prisma.prestasi.findMany({
+      where: { is_published: true },
+      orderBy: { published_at: 'desc' },
+      take: 5,
+      include: {
+        submission: true,
+      },
+    });
+
+    return prestasi.map(item => ({
+      id: item.id,
+      namaPrestasi: item.judul,
+      namaLomba: item.nama_lomba,
+      tingkat: item.tingkat,
+      submitterName: item.submission?.submitter_name || '-',
+      status: 'verified',
+      dateCreated: item.published_at?.toISOString() || null,
+    }));
   } catch (error) {
     console.error('Error fetching recent prestasi:', error);
     return [];
@@ -64,25 +56,49 @@ async function getRecentPrestasi() {
 
 async function getPendingVerification() {
   try {
-    // Removed is_deleted filter - field doesn't exist in current schema
-    const [prestasiRes, registrasiRes] = await Promise.all([
-      fetch(`${DIRECTUS_URL}/items/apm_prestasi?aggregate[count]=*&filter[status][_eq]=pending`, { cache: 'no-store' }),
-      fetch(`${DIRECTUS_URL}/items/apm_expo_registrations?aggregate[count]=*&filter[status][_eq]=pending`, { cache: 'no-store' }),
-    ]);
-
-    const [prestasiData, registrasiData] = await Promise.all([
-      prestasiRes.json(),
-      registrasiRes.json(),
+    const [pendingPrestasi, pendingExpoReg] = await Promise.all([
+      prisma.prestasiSubmission.count({ where: { status: 'pending' } }),
+      prisma.expoRegistration.count({ where: { status: 'pending' } }),
     ]);
 
     return {
-      prestasi: prestasiData.data?.[0]?.count || 0,
-      registrasi: registrasiData.data?.[0]?.count || 0,
+      prestasi: pendingPrestasi,
+      registrasi: pendingExpoReg,
     };
   } catch (error) {
     console.error('Error fetching pending counts:', error);
     return { prestasi: 0, registrasi: 0 };
   }
+}
+
+// Helper functions for status display
+function getStatusBadge(status: string): string {
+  const badges: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    verified: 'bg-green-100 text-green-800',
+    approved: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800',
+  };
+  return badges[status] || 'bg-slate-100 text-slate-800';
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: 'Menunggu',
+    verified: 'Terverifikasi',
+    approved: 'Terverifikasi',
+    rejected: 'Ditolak',
+  };
+  return labels[status] || status;
+}
+
+function formatDate(dateString: string): string {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 export default async function AdminDashboardPage() {
@@ -281,22 +297,22 @@ export default async function AdminDashboardPage() {
                   {recentPrestasi.map((item: Record<string, unknown>) => (
                     <tr key={item.id as number} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="py-3 px-2">
-                        <p className="font-medium text-slate-800 text-sm">{item.nama_prestasi as string}</p>
-                        <p className="text-xs text-slate-500">{item.nama_lomba as string}</p>
+                        <p className="font-medium text-slate-800 text-sm">{item.namaPrestasi as string}</p>
+                        <p className="text-xs text-slate-500">{item.namaLomba as string}</p>
                       </td>
                       <td className="py-3 px-2">
                         <span className="text-sm text-slate-600 capitalize">{item.tingkat as string}</span>
                       </td>
                       <td className="py-3 px-2">
-                        <span className="text-sm text-slate-600">{(item.submitter_name as string) || '-'}</span>
+                        <span className="text-sm text-slate-600">{(item.submitterName as string) || '-'}</span>
                       </td>
                       <td className="py-3 px-2">
                         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(item.status as string)}`}>
-                          {item.status as string}
+                          {getStatusLabel(item.status as string)}
                         </span>
                       </td>
                       <td className="py-3 px-2 text-sm text-slate-500">
-                        {formatDate(item.date_created as string)}
+                        {formatDate(item.dateCreated as string)}
                       </td>
                     </tr>
                   ))}

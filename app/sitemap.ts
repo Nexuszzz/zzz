@@ -1,57 +1,48 @@
 ﻿import { MetadataRoute } from 'next';
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://apm-portal.id';
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 async function fetchDynamicRoutes() {
   try {
-    // Fetch all lomba slugs
-    const lombaRes = await fetch(`${DIRECTUS_URL}/items/apm_lomba?fields=slug,date_updated&filter[status][_neq]=closed&limit=-1`, {
+    // Fetch all lomba slugs from internal API
+    const lombaRes = await fetch(`${API_BASE}/api/lomba?limit=1000`, {
       next: { revalidate: 3600 },
     });
     const lombaData = await lombaRes.json();
     const lombaPages = (lombaData.data || []).map((item: any) => ({
       url: `${baseUrl}/lomba/${item.slug}`,
-      lastModified: item.date_updated ? new Date(item.date_updated) : new Date(),
+      lastModified: new Date(),
       changeFrequency: 'weekly' as const,
       priority: 0.7,
     }));
 
-    // Fetch all prestasi slugs
-    const prestasiRes = await fetch(`${DIRECTUS_URL}/items/apm_prestasi?fields=slug,date_updated&filter[status][_eq]=verified&limit=-1`, {
+    // Fetch all prestasi slugs from internal API
+    const prestasiRes = await fetch(`${API_BASE}/api/prestasi?limit=1000`, {
       next: { revalidate: 3600 },
     });
     const prestasiData = await prestasiRes.json();
     const prestasiPages = (prestasiData.data || []).map((item: any) => ({
       url: `${baseUrl}/prestasi/${item.slug}`,
-      lastModified: item.date_updated ? new Date(item.date_updated) : new Date(),
+      lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.6,
     }));
 
-    // Fetch all expo slugs
-    const expoRes = await fetch(`${DIRECTUS_URL}/items/apm_expo?fields=slug,date_updated&limit=-1`, {
+    // Fetch all expo slugs from internal API
+    const expoRes = await fetch(`${API_BASE}/api/expo?limit=1000`, {
       next: { revalidate: 3600 },
     });
     const expoData = await expoRes.json();
     const expoPages = (expoData.data || []).map((item: any) => ({
       url: `${baseUrl}/expo/${item.slug}`,
-      lastModified: item.date_updated ? new Date(item.date_updated) : new Date(),
+      lastModified: new Date(),
       changeFrequency: 'weekly' as const,
       priority: 0.7,
     }));
 
-    // Fetch all resources slugs
-    const resourcesRes = await fetch(`${DIRECTUS_URL}/items/apm_resources?fields=slug,date_updated&filter[is_published][_eq]=true&limit=-1`, {
-      next: { revalidate: 3600 },
-    });
-    const resourcesData = await resourcesRes.json();
-    const resourcePages = (resourcesData.data || []).map((item: any) => ({
-      url: `${baseUrl}/resources/${item.slug}`,
-      lastModified: item.date_updated ? new Date(item.date_updated) : new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.5,
-    }));
+    // Resources are still managed externally (CMS)
+    const resourcePages: MetadataRoute.Sitemap = [];
 
     return [...lombaPages, ...prestasiPages, ...expoPages, ...resourcePages];
   } catch (error) {

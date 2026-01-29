@@ -1,127 +1,112 @@
 ﻿/**
- * API Route: Get Lomba List
- * GET /api/lomba
+ * Public Lomba API
+ * 
+ * GET /api/lomba - Get list of public lomba
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma/client'
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(request.url)
 
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
-    const kategori = searchParams.get('kategori');
-    const tingkat = searchParams.get('tingkat');
-    const status = searchParams.get('status');
-    const search = searchParams.get('search');
-    const slug = searchParams.get('slug'); // Add slug filter for detail page
-    const featured = searchParams.get('featured') === 'true';
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '12')
+    const kategori = searchParams.get('kategori')
+    const tingkat = searchParams.get('tingkat')
+    const status = searchParams.get('status')
+    const search = searchParams.get('search')
+    const slug = searchParams.get('slug')
+    const featured = searchParams.get('featured') === 'true'
 
-    // Build filter
-    const filter: Record<string, unknown> = {};
+    // Build where clause
+    const where: Record<string, unknown> = {
+      is_deleted: false,
+    }
 
     if (slug) {
-      // Direct slug lookup for detail page
-      filter.slug = { _eq: slug };
+      where.slug = slug
     } else {
-      // Normal filters for list page
-      if (kategori) filter.kategori = { _eq: kategori };
-      if (tingkat) filter.tingkat = { _eq: tingkat };
-      if (status) filter.status = { _eq: status };
-      if (featured) filter.is_featured = { _eq: true };
+      // Default filter for public: show ongoing, open, published, draft
+      if (status) {
+        where.status = status
+      } else {
+        where.status = { in: ['open', 'draft', 'ongoing', 'published'] }
+      }
+      
+      if (kategori) where.kategori = kategori
+      if (tingkat) where.tingkat = tingkat
+      if (featured) where.is_featured = true
+      
       if (search) {
-        filter._or = [
-          { nama_lomba: { _icontains: search } },
-          { deskripsi: { _icontains: search } },
-        ];
+        where.OR = [
+          { nama_lomba: { contains: search, mode: 'insensitive' } },
+          { deskripsi: { contains: search, mode: 'insensitive' } },
+        ]
       }
     }
 
-    // Build URL params
-    const params = new URLSearchParams();
-    params.set('limit', slug ? '1' : limit.toString());
-    params.set('offset', slug ? '0' : ((page - 1) * limit).toString());
-    params.set('sort', '-date_created');
-    // Use correct field names from Directus schema
-    const fields = slug
-      ? 'id,nama_lomba,slug,deadline,kategori,tingkat,status,poster,biaya,lokasi,is_featured,is_urgent,tags,deskripsi,penyelenggara,syarat_ketentuan,hadiah,kontak_panitia,link_pendaftaran,tanggal_pelaksanaan'
-      : 'id,nama_lomba,slug,deadline,kategori,tingkat,status,poster,biaya,lokasi,is_featured,is_urgent,tags';
-    params.set('fields', fields);
+    // Query lomba - always select all fields for simplicity
+    const [lombaList, total] = await Promise.all([
+      prisma.lomba.findMany({
+        where: where as any,
+        orderBy: { created_at: 'desc' },
+        skip: slug ? 0 : (page - 1) * limit,
+        take: slug ? 1 : limit,
+      }),
+      slug ? Promise.resolve(1) : prisma.lomba.count({ where: where as any }),
+    ])
 
-    if (Object.keys(filter).length > 0) {
-      params.set('filter', JSON.stringify(filter));
-    }
+    // Transform data for frontend compatibility
+    const data = lombaList.map((item) => ({
+      id: item.id,
+      slug: item.slug,
+      title: item.nama_lomba,
+      nama_lomba: item.nama_lomba,
+      kategori: item.kategori,
+      tingkat: item.tingkat.charAt(0).toUpperCase() + item.tingkat.slice(1),
+      deadline: item.deadline?.toISOString() || null,
+      lokasi: item.lokasi || '',
+      biaya: item.biaya,
+      isFree: item.biaya === 0,
+      isFeatured: item.is_featured,
+      isUrgent: item.is_urgent,
+      status: item.status,
+      posterUrl: item.poster || null,
+      tags: Array.isArray(item.tags) ? item.tags : (item.tags ? [item.tags] : []),
+      // Detail fields (always included)
+      deskripsi: item.deskripsi || '',
+      tanggalPelaksanaan: item.tanggal_pelaksanaan?.toISOString() || null,
+      penyelenggara: item.penyelenggara || '',
+      sumber: item.sumber,
+      tipe_pendaftaran: item.tipe_pendaftaran,
+      link_pendaftaran: item.link_pendaftaran || null,
+      custom_form: item.custom_form,
+      syarat_ketentuan: item.syarat_ketentuan || '',
+      hadiah: item.hadiah,
+      kontak_panitia: item.kontak_panitia,
+    }))
 
-    const url = `${DIRECTUS_URL}/items/apm_lomba?${params.toString()}`;
-    console.log('Fetching from:', url);
-
-    const response = await fetch(url, {
-      next: { revalidate: 60 }, // Cache for 60 seconds
-    });
-
-    if (!response.ok) {
-      console.error('Directus error:', response.status, await response.text());
-      throw new Error(`Directus error: ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    // Use public Directus URL for asset URLs (browser accessible)
-    const publicDirectusUrl = process.env.NEXT_PUBLIC_DIRECTUS_URL || DIRECTUS_URL;
-
-    // Transform data for frontend - use correct Directus field names
-    const data = result.data.map((item: Record<string, unknown>) => {
-      // Parse kontak_panitia JSON if it's a string
-      let kontak = item.kontak_panitia;
-      if (typeof kontak === 'string') {
-        try { kontak = JSON.parse(kontak); } catch { kontak = null; }
-      }
-
-      // Parse hadiah JSON if it's a string
-      let hadiah = item.hadiah;
-      if (typeof hadiah === 'string') {
-        try { hadiah = JSON.parse(hadiah); } catch { hadiah = []; }
-      }
-
-      return {
-        id: String(item.id),
-        slug: item.slug,
-        title: item.nama_lomba,
-        deadline: item.deadline,
-        deadlineDisplay: item.deadline ? new Date(item.deadline as string).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : null,
-        kategori: String(item.kategori || '').charAt(0).toUpperCase() + String(item.kategori || '').slice(1),
-        tingkat: String(item.tingkat || '').charAt(0).toUpperCase() + String(item.tingkat || '').slice(1),
-        status: item.status || 'open',
-        isUrgent: item.is_urgent,
-        isFree: item.biaya === 0,
-        posterUrl: item.poster ? `${publicDirectusUrl}/assets/${item.poster}?width=400` : null,
-        // Detail fields
-        deskripsi: item.deskripsi || '',
-        penyelenggara: item.penyelenggara || '',
-        lokasi: item.lokasi || '',
-        biaya: item.biaya || 0,
-        peserta: '', // Not stored in current schema
-        hadiah: Array.isArray(hadiah) ? hadiah : [],
-        syarat: item.syarat_ketentuan || '',
-        timeline: [], // Not stored in current schema
-        kontakEmail: (kontak as Record<string, string>)?.email || '',
-        kontakPhone: (kontak as Record<string, string>)?.phone || (kontak as Record<string, string>)?.whatsapp || '',
-        kontakWebsite: '',
-        linkPendaftaran: item.link_pendaftaran || '',
-        tags: Array.isArray(item.tags) ? item.tags : [],
-      };
-    });
-
-    return NextResponse.json({ data });
+    return NextResponse.json({
+      success: true,
+      data,
+      pagination: slug ? undefined : {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
-    console.error('Error fetching lomba:', error);
+    console.error('Error fetching lomba:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch lomba' },
+      { success: false, error: 'Gagal mengambil data lomba' },
       { status: 500 }
-    );
+    )
   }
 }
 

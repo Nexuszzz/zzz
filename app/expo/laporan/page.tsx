@@ -1,14 +1,13 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Breadcrumb, Button } from '@/components/ui';
-import { FileBarChart, ArrowLeft, Users, Eye, TrendingUp, Calendar } from 'lucide-react';
+import { FileBarChart, ArrowLeft, Users, Eye, TrendingUp } from 'lucide-react';
+import { prisma } from '@/lib/prisma/client';
 
 export const metadata: Metadata = {
     title: 'Laporan Kunjungan | APM Polinema',
     description: 'Laporan statistik kunjungan expo dan pameran',
 };
-
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
 interface ExpoReport {
     id: string;
@@ -39,32 +38,37 @@ const staticStats = {
 
 async function getExpoStats(): Promise<ExpoStats> {
     try {
-        const params = new URLSearchParams();
-        params.set('filter', JSON.stringify({ status: { _eq: 'past' } }));
-        params.set('fields', 'id,nama_event,jumlah_pengunjung,jumlah_proyek,rating');
-        params.set('sort', '-tanggal_mulai');
-        params.set('limit', '5');
-
-        const res = await fetch(`${DIRECTUS_URL}/items/apm_expo?${params.toString()}`, {
-            next: { revalidate: 60 },
+        // Note: The Expo schema doesn't have visitor/project stats yet
+        // Using static data until those fields are added to the schema
+        const expoData = await prisma.expo.findMany({
+            where: {
+                is_deleted: false,
+                status: 'completed',
+            },
+            orderBy: { tanggal_mulai: 'desc' },
+            take: 5,
+            select: {
+                id: true,
+                nama_event: true,
+            },
         });
 
-        if (!res.ok) return staticStats;
-        const data = await res.json();
+        if (expoData.length === 0) return staticStats;
 
-        if (!data.data || data.data.length === 0) return staticStats;
-
-        const reports = data.data.map((item: Record<string, unknown>) => ({
+        // Map expo data with placeholder stats
+        const reports = expoData.map((item, idx) => ({
             id: String(item.id),
-            title: item.nama_event,
-            visitors: item.jumlah_pengunjung || 0,
-            projects: item.jumlah_proyek || 0,
-            rating: item.rating || 0,
+            title: item.nama_event || 'Expo',
+            visitors: staticStats.reports[idx]?.visitors || 1000,
+            projects: staticStats.reports[idx]?.projects || 20,
+            rating: staticStats.reports[idx]?.rating || 4.5,
         }));
 
         const totalVisitors = reports.reduce((sum: number, r: ExpoReport) => sum + r.visitors, 0);
         const totalProjects = reports.reduce((sum: number, r: ExpoReport) => sum + r.projects, 0);
-        const avgRating = reports.reduce((sum: number, r: ExpoReport) => sum + r.rating, 0) / reports.length;
+        const avgRating = reports.length > 0 
+            ? reports.reduce((sum: number, r: ExpoReport) => sum + r.rating, 0) / reports.length 
+            : 0;
 
         return { totalVisitors, totalProjects, avgRating: Math.round(avgRating * 10) / 10, reports };
     } catch {
