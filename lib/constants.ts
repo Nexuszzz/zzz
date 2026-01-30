@@ -32,7 +32,6 @@ export const mainNavigation = [
     href: '/prestasi',
     submenu: [
       { name: 'Galeri Prestasi', href: '/prestasi' },
-      { name: 'Berdasarkan Fakultas', href: '/prestasi?filter=fakultas' },
       { name: 'Berdasarkan Jenis', href: '/prestasi?filter=jenis' },
       { name: 'Berdasarkan Tahun', href: '/prestasi?filter=tahun' },
       { name: 'Success Stories', href: '/prestasi/stories' },
@@ -123,8 +122,8 @@ export const fakultasList = [
 
 // Program Studi Teknik Telekomunikasi (Jurusan Teknik Elektro)
 export const prodiTelkomList = [
-  { id: 'd2-telkom', name: 'D2 Teknik Telekomunikasi' },
-  { id: 'd4-telkom', name: 'D4 Teknik Telekomunikasi' },
+  { id: 'd3-telkom', name: 'D3 Teknik Telekomunikasi' },
+  { id: 'd4-jtd', name: 'D4 Jaringan Telekomunikasi Digital' },
 ] as const;
 
 // Peringkat/Hasil Lomba

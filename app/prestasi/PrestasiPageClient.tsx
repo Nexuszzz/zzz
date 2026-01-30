@@ -258,7 +258,10 @@ export default function PrestasiPageClient({ initialData, stats }: PrestasiPageC
           }>
             {paginatedData.map((prestasi) => (
               <Link key={prestasi.id} href={`/prestasi/${prestasi.slug}`}>
-                <PrestasiCard {...prestasi} />
+                <PrestasiCard 
+                  {...prestasi} 
+                  foto={prestasi.thumbnailUrl || (prestasi.galeri && prestasi.galeri.length > 0 ? prestasi.galeri[0] : undefined)}
+                />
               </Link>
             ))}
           </div>

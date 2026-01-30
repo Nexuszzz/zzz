@@ -178,42 +178,79 @@ const PrestasiCard = ({
   };
 
   const content = (
-    <Card className="flex flex-col h-full p-4">
-      {/* Header with medal color */}
-      <div className="flex items-start gap-3 mb-3">
-        <div className={cn(
-          'w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br',
-          getPeringkatColor(peringkat)
-        )}>
-          <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-          </svg>
-        </div>
-        <div className="flex-1 min-w-0">
-          <Badge variant={tingkat.toLowerCase() as 'nasional' | 'internasional' | 'regional'} size="sm" className="mb-1">
+    <Card className="flex flex-col h-full overflow-hidden">
+      {/* Thumbnail Image */}
+      <div className="relative aspect-[16/9] bg-gradient-to-br from-primary via-primary-600 to-secondary">
+        {foto ? (
+          <Image
+            src={foto}
+            alt={title || namaLomba || 'Prestasi'}
+            fill
+            className="object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className={cn(
+              'w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br shadow-lg',
+              getPeringkatColor(peringkat)
+            )}>
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+              </svg>
+            </div>
+          </div>
+        )}
+        {/* Badge overlay */}
+        <div className="absolute top-3 left-3">
+          <Badge variant={tingkat.toLowerCase() as 'nasional' | 'internasional' | 'regional'} size="sm">
             {tingkat}
           </Badge>
-          <p className="text-sm font-semibold text-text-main">{peringkat}</p>
         </div>
+        {isVerified && (
+          <div className="absolute top-3 right-3">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-xs font-medium">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              Verified
+            </span>
+          </div>
+        )}
       </div>
-
-      {/* Title */}
-      <h4 className="font-semibold text-text-main mb-1 line-clamp-2">
-        {title || namaLomba}
-      </h4>
       
-      {/* Team members */}
-      {tim && tim.length > 0 && (
-        <p className="text-sm text-text-muted mb-2 line-clamp-1">
-          {tim.map(t => t.nama).join(', ')}
-        </p>
-      )}
+      {/* Content */}
+      <div className="flex flex-col flex-1 p-4">
+        {/* Peringkat */}
+        <div className="flex items-center gap-2 mb-2">
+          <div className={cn(
+            'w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br',
+            getPeringkatColor(peringkat)
+          )}>
+            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+            </svg>
+          </div>
+          <span className="text-sm font-semibold text-text-main">{peringkat}</span>
+        </div>
 
-      {/* Footer info */}
-      <div className="mt-auto pt-3 border-t border-gray-100">
-        <div className="flex items-center justify-between text-xs text-text-muted">
-          <span className="line-clamp-1">{fakultas || prodi}</span>
-          {tahun && <span>{tahun}</span>}
+        {/* Title */}
+        <h4 className="font-semibold text-text-main mb-2 line-clamp-2">
+          {title || namaLomba}
+        </h4>
+        
+        {/* Team members */}
+        {tim && tim.length > 0 && (
+          <p className="text-sm text-text-muted mb-2 line-clamp-1">
+            {tim.map(t => t.nama).join(', ')}
+          </p>
+        )}
+
+        {/* Footer info */}
+        <div className="mt-auto pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-between text-xs text-text-muted">
+            <span className="line-clamp-1">{fakultas || prodi}</span>
+            {tahun && <span className="font-medium">{tahun}</span>}
+          </div>
         </div>
       </div>
     </Card>

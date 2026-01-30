@@ -31,6 +31,9 @@ export interface PrestasiItem {
   kategori: string;
   isVerified: boolean;
   sertifikatUrl?: string | null;
+  thumbnailUrl?: string | null;
+  foto?: string | null;
+  galeri?: string[];
 }
 
 export interface ExpoItem {
