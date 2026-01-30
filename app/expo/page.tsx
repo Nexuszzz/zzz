@@ -26,9 +26,31 @@ async function getExpoData() {
   }
 }
 
-export default async function ExpoPage() {
-  const expoData = await getExpoData();
+async function getExpoSettings() {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/expo/settings`, {
+      next: { revalidate: 60 },
+    });
+    
+    if (!response.ok) {
+      return { is_active: true, inactive_message: '', next_expo_date: null };
+    }
+    
+    const result = await response.json();
+    return result.data || { is_active: true, inactive_message: '', next_expo_date: null };
+  } catch (error) {
+    console.error('Error fetching expo settings:', error);
+    return { is_active: true, inactive_message: '', next_expo_date: null };
+  }
+}
 
-  return <ExpoPageClient initialData={expoData} />;
+export default async function ExpoPage() {
+  const [expoData, settings] = await Promise.all([
+    getExpoData(),
+    getExpoSettings(),
+  ]);
+
+  return <ExpoPageClient initialData={expoData} settings={settings} />;
 }
 

@@ -9,6 +9,7 @@ export interface TeamMember {
   nim: string;
   role: 'ketua' | 'anggota';
   angkatan?: string;
+  whatsapp?: string;
 }
 
 interface TeamMemberInputProps {
@@ -86,7 +87,7 @@ export function TeamMemberInput({
               </button>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
               <FormField
                 label="Nama Lengkap"
                 value={member.nama}
@@ -108,6 +109,14 @@ export function TeamMemberInput({
                 value={member.angkatan || ''}
                 onChange={(e) => updateMember(index, 'angkatan', e.target.value)}
                 placeholder="2023"
+              />
+              <FormField
+                label="WhatsApp"
+                value={member.whatsapp || ''}
+                onChange={(e) => updateMember(index, 'whatsapp', e.target.value)}
+                placeholder="08xxxxxxxxxx"
+                hint={index === 0 ? 'Wajib untuk ketua tim' : 'Opsional'}
+                error={errors[`members.${index}.whatsapp`]}
               />
             </div>
           </div>

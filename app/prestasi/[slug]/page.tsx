@@ -14,13 +14,11 @@ import {
   Users, 
   Building2,
   GraduationCap,
-  ExternalLink,
-  Share2,
   ArrowRight,
   Award,
   FileText,
-  Download
 } from 'lucide-react';
+import { PrestasiActions } from './PrestasiActions';
 
 async function getPrestasiBySlug(slug: string) {
   try {
@@ -183,13 +181,6 @@ const relatedPrestasi = [
                 {prestasiDetail.title}
               </h1>
               <p className="text-white/80">{prestasiDetail.namaLomba}</p>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              <Button variant="secondary" leftIcon={<Share2 className="w-4 h-4" />}>
-                Bagikan
-              </Button>
             </div>
           </div>
         </div>
@@ -373,30 +364,11 @@ const relatedPrestasi = [
               <hr className="my-5" />
 
               {/* Sumber & Download */}
-              <div className="space-y-3">
-                <Button 
-                  variant="primary" 
-                  fullWidth
-                  leftIcon={<ExternalLink className="w-4 h-4" />}
-                  onClick={() => window.open(prestasiDetail.sumberBerita, '_blank')}
-                >
-                  Lihat Berita Resmi
-                </Button>
-                <Button 
-                  variant="outline" 
-                  fullWidth
-                  leftIcon={<Download className="w-4 h-4" />}
-                >
-                  Download Sertifikat
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  fullWidth
-                  leftIcon={<Share2 className="w-4 h-4" />}
-                >
-                  Bagikan Prestasi
-                </Button>
-              </div>
+              <PrestasiActions
+                sumberBerita={prestasiDetail.sumberBerita}
+                sertifikat={prestasiDetail.sertifikat}
+                title={prestasiDetail.title}
+              />
             </div>
           </div>
         </div>

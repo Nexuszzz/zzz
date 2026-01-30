@@ -71,6 +71,7 @@ export default async function LombaDetailPage({ params }: { params: { slug: stri
     linkPendaftaran: lomba.linkPendaftaran || '',
     posterUrl: lomba.posterUrl,
     tags: Array.isArray(lomba.tags) ? lomba.tags : [],
+    tipePendaftaran: lomba.tipePendaftaran || lomba.tipe_pendaftaran || 'internal',
   };
 
   return (
@@ -268,23 +269,34 @@ export default async function LombaDetailPage({ params }: { params: { slug: stri
                 </div>
               )}
 
-              {/* CTA Buttons */}
+              {/* CTA Buttons - Conditional based on tipe_pendaftaran */}
               <div className="bg-white rounded-xl shadow-card p-6 space-y-3">
-                {/* Internal Registration Form */}
-                <Link href={`/lomba/${lomba.slug}/daftar`}>
-                  <Button variant="primary" size="lg" fullWidth>
-                    Daftar Sekarang
-                  </Button>
-                </Link>
+                {/* Internal: Daftar via form internal */}
+                {lombaDetail.tipePendaftaran === 'internal' && (
+                  <Link href={`/lomba/${lomba.slug}/daftar`}>
+                    <Button variant="primary" size="lg" fullWidth>
+                      Daftar Sekarang
+                    </Button>
+                  </Link>
+                )}
                 
-                {/* External Registration Link (if available) */}
-                {lombaDetail.linkPendaftaran && (
+                {/* Eksternal: Daftar via link penyelenggara */}
+                {lombaDetail.tipePendaftaran === 'eksternal' && lombaDetail.linkPendaftaran && (
                   <a href={lombaDetail.linkPendaftaran} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="lg" fullWidth>
+                    <Button variant="primary" size="lg" fullWidth>
                       <ExternalLink className="w-5 h-5 mr-2" />
-                      Website Penyelenggara
+                      Daftar di Website Penyelenggara
                     </Button>
                   </a>
+                )}
+                
+                {/* None: Info only, no registration button */}
+                {lombaDetail.tipePendaftaran === 'none' && (
+                  <div className="p-4 bg-gray-50 rounded-lg text-center">
+                    <p className="text-text-muted text-sm">
+                      Lomba ini hanya untuk informasi.
+                    </p>
+                  </div>
                 )}
               </div>
 

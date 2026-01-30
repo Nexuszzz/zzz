@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Info } from 'lucide-react';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import ImageUpload from '@/components/admin/ImageUpload';
 
 interface LombaFormData {
   nama_lomba: string;
@@ -24,6 +25,8 @@ interface LombaFormData {
   biaya_pendaftaran: number;
   is_featured: boolean;
   status: string;
+  tipe_pendaftaran: string;
+  poster: string;
 }
 
 const initialFormData: LombaFormData = {
@@ -43,7 +46,9 @@ const initialFormData: LombaFormData = {
   cp_whatsapp: '',
   biaya_pendaftaran: 0,
   is_featured: false,
-  status: 'upcoming',
+  status: 'draft',
+  tipe_pendaftaran: 'internal',
+  poster: '',
 };
 
 const kategoriOptions = [
@@ -66,9 +71,15 @@ const tingkatOptions = [
 ];
 
 const statusOptions = [
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'ongoing', label: 'Ongoing' },
-  { value: 'closed', label: 'Closed' },
+  { value: 'draft', label: 'Draft (Belum dipublish)' },
+  { value: 'open', label: 'Published (Pendaftaran dibuka)' },
+  { value: 'closed', label: 'Closed (Pendaftaran ditutup)' },
+];
+
+const tipePendaftaranOptions = [
+  { value: 'internal', label: 'Internal', desc: 'Pendaftaran melalui form di website ini' },
+  { value: 'eksternal', label: 'Eksternal', desc: 'Pendaftaran melalui link website penyelenggara' },
+  { value: 'none', label: 'Info Only', desc: 'Hanya informasi, tanpa pendaftaran' },
 ];
 
 export default function CreateLombaPage() {
@@ -234,6 +245,86 @@ export default function CreateLombaPage() {
           </div>
         </div>
 
+        {/* Poster Upload */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">Poster Lomba</h2>
+          <ImageUpload
+            value={formData.poster}
+            onChange={(value) => setFormData(prev => ({ ...prev, poster: value as string }))}
+            category="lomba"
+            label="Upload Poster"
+            helperText="Ukuran rekomendasi: 800x1200px (Portrait). Max 5MB."
+          />
+        </div>
+
+        {/* Tipe Pendaftaran */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">Mode Pendaftaran</h2>
+          <div className="space-y-3">
+            {tipePendaftaranOptions.map(opt => (
+              <label 
+                key={opt.value}
+                className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
+                  formData.tipe_pendaftaran === opt.value 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="tipe_pendaftaran"
+                  value={opt.value}
+                  checked={formData.tipe_pendaftaran === opt.value}
+                  onChange={handleChange}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="font-medium text-slate-800">{opt.label}</span>
+                  <p className="text-sm text-slate-500">{opt.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+          
+          {/* Show link pendaftaran field when eksternal */}
+          {formData.tipe_pendaftaran === 'eksternal' && (
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Link Pendaftaran Eksternal <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="url"
+                name="link_pendaftaran"
+                value={formData.link_pendaftaran}
+                onChange={handleChange}
+                required={formData.tipe_pendaftaran === 'eksternal'}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://website-penyelenggara.com/daftar"
+              />
+            </div>
+          )}
+
+          {/* Info for internal */}
+          {formData.tipe_pendaftaran === 'internal' && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+              <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-800">
+                Pendaftaran akan menggunakan form bawaan website. Peserta akan mengisi data diri dan mendaftar langsung melalui halaman lomba.
+              </p>
+            </div>
+          )}
+
+          {/* Info for none */}
+          {formData.tipe_pendaftaran === 'none' && (
+            <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg flex items-start gap-3">
+              <Info size={20} className="text-slate-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-slate-700">
+                Lomba ini hanya menampilkan informasi tanpa tombol pendaftaran.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Date & Location */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
           <h2 className="text-lg font-semibold text-slate-800 mb-4">Tanggal & Lokasi</h2>
@@ -330,22 +421,8 @@ export default function CreateLombaPage() {
 
         {/* Registration & Contact */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">Pendaftaran & Kontak</h2>
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">Biaya & Kontak</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Link Pendaftaran
-              </label>
-              <input
-                type="url"
-                name="link_pendaftaran"
-                value={formData.link_pendaftaran}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="https://..."
-              />
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Biaya Pendaftaran (Rp)

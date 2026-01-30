@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Search, 
   Eye,
@@ -11,7 +12,8 @@ import {
   ChevronRight,
   ExternalLink,
   FileText,
-  X
+  X,
+  Globe
 } from 'lucide-react';
 import { BackButton } from '@/components/admin/BackButton';
 
@@ -322,6 +324,15 @@ export default function AdminPrestasiPage() {
                           >
                             <Eye size={16} />
                           </button>
+                          {(item.status === 'approved' || item.status === 'verified') && (
+                            <Link
+                              href={`/admin/prestasi/${item.id}/publish`}
+                              className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Publikasikan"
+                            >
+                              <Globe size={16} />
+                            </Link>
+                          )}
                         </div>
                       </td>
                     </tr>

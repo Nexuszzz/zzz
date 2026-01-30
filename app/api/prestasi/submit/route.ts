@@ -62,19 +62,33 @@ export async function POST(request: NextRequest) {
         submitter_whatsapp: formData.get('submitter_whatsapp') as string || '-',
       }
       
-      // Parse team members if provided
+      // Parse team members if provided (with whatsapp)
       const timJson = formData.get('tim') as string
       if (timJson) {
         try {
           const tim = JSON.parse(timJson)
-          data.team_members = tim.map((m: { nama: string; nim: string; role?: string }, idx: number) => ({
+          data.team_members = tim.map((m: { nama: string; nim: string; role?: string; angkatan?: string; whatsapp?: string }, idx: number) => ({
             nama: m.nama,
             nim: m.nim,
+            angkatan: m.angkatan || null,
+            whatsapp: m.whatsapp || null,
             is_ketua: idx === 0 || m.role === 'ketua',
           }))
         } catch {
           // Ignore parse errors
         }
+      }
+      
+      // Parse pembimbing data
+      const pembimbingNama = formData.get('pembimbing_nama') as string
+      const pembimbingNidn = formData.get('pembimbing_nidn') as string
+      const pembimbingWhatsapp = formData.get('pembimbing_whatsapp') as string
+      if (pembimbingNama && pembimbingNama.trim()) {
+        data.pembimbing = [{
+          nama: pembimbingNama,
+          nidn: pembimbingNidn || null,
+          whatsapp: pembimbingWhatsapp || null,
+        }]
       }
       
       // Handle file uploads
@@ -93,17 +107,20 @@ export async function POST(request: NextRequest) {
         sertifikatPath = `/uploads/prestasi/${fileName}`
       }
       
-      const suratKeterangan = formData.get('suratKeterangan') as File | null
-      if (suratKeterangan && suratKeterangan.size > 0) {
-        const ext = suratKeterangan.name.split('.').pop()
-        const fileName = `surat-${uuidv4()}.${ext}`
-        const filePath = path.join(uploadsDir, fileName)
-        const bytes = await suratKeterangan.arrayBuffer()
-        await writeFile(filePath, Buffer.from(bytes))
-        suratPath = `/uploads/prestasi/${fileName}`
+      // Handle dokumentasi URLs (already uploaded via ImageUpload component)
+      const dokumentasiJson = formData.get('dokumentasi') as string
+      if (dokumentasiJson) {
+        try {
+          const urls = JSON.parse(dokumentasiJson)
+          if (Array.isArray(urls)) {
+            dokumentasiPaths.push(...urls)
+          }
+        } catch {
+          // Ignore parse errors
+        }
       }
       
-      // Handle dokumentasi files
+      // Handle legacy file upload format for dokumentasi
       for (let i = 0; i < 10; i++) {
         const dok = formData.get(`dokumentasi_${i}`) as File | null
         if (dok && dok.size > 0) {
@@ -115,6 +132,35 @@ export async function POST(request: NextRequest) {
           dokumentasiPaths.push(`/uploads/prestasi/${fileName}`)
         }
       }
+      
+      // Handle surat pendukung with labels (already uploaded via FileUploadWithLabels)
+      const suratPendukungJson = formData.get('surat_pendukung') as string
+      interface SuratPendukungItem { url: string; label: string }
+      let suratPendukungItems: SuratPendukungItem[] = []
+      if (suratPendukungJson) {
+        try {
+          const items = JSON.parse(suratPendukungJson)
+          if (Array.isArray(items)) {
+            suratPendukungItems = items
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+      
+      // Handle legacy surat keterangan format
+      const suratKeterangan = formData.get('suratKeterangan') as File | null
+      if (suratKeterangan && suratKeterangan.size > 0) {
+        const ext = suratKeterangan.name.split('.').pop()
+        const fileName = `surat-${uuidv4()}.${ext}`
+        const filePath = path.join(uploadsDir, fileName)
+        const bytes = await suratKeterangan.arrayBuffer()
+        await writeFile(filePath, Buffer.from(bytes))
+        suratPath = `/uploads/prestasi/${fileName}`
+      }
+      
+      // Store surat pendukung items for later use
+      data.surat_pendukung_items = suratPendukungItems
     } else {
       // Handle JSON
       data = await request.json()
@@ -173,13 +219,43 @@ export async function POST(request: NextRequest) {
             whatsapp: p.whatsapp || null,
           })),
         } : undefined,
-        documents: sertifikatPath ? {
+        documents: {
           create: [
-            { type: 'sertifikat', file_path: sertifikatPath, file_name: 'Sertifikat', file_type: 'application/pdf', file_size: 0 },
-            ...(suratPath ? [{ type: 'surat_tugas', file_path: suratPath, file_name: 'Surat Keterangan', file_type: 'application/pdf', file_size: 0 }] : []),
-            ...dokumentasiPaths.map((p, i) => ({ type: 'dokumentasi', file_path: p, file_name: `Dokumentasi ${i+1}`, file_type: 'image/jpeg', file_size: 0 })),
-          ],
-        } : undefined,
+            // Sertifikat
+            ...(sertifikatPath ? [{ 
+              type: 'sertifikat', 
+              file_path: sertifikatPath, 
+              file_name: 'Sertifikat', 
+              file_type: 'application/pdf', 
+              file_size: 0 
+            }] : []),
+            // Legacy surat tugas
+            ...(suratPath ? [{ 
+              type: 'surat_tugas', 
+              file_path: suratPath, 
+              file_name: 'Surat Keterangan', 
+              file_type: 'application/pdf', 
+              file_size: 0 
+            }] : []),
+            // Dokumentasi (images)
+            ...dokumentasiPaths.map((p, i) => ({ 
+              type: 'dokumentasi', 
+              file_path: p, 
+              file_name: `Dokumentasi ${i+1}`, 
+              file_type: 'image/jpeg', 
+              file_size: 0 
+            })),
+            // Surat pendukung dengan labels
+            ...((data.surat_pendukung_items as Array<{url: string; label: string}>) || []).map((item: {url: string; label: string}) => ({
+              type: 'surat_pendukung',
+              label: item.label,
+              file_path: item.url,
+              file_name: item.label || 'Surat Pendukung',
+              file_type: 'application/pdf',
+              file_size: 0
+            })),
+          ].filter(doc => doc.file_path), // Filter out empty paths
+        },
       },
       include: {
         team_members: true,

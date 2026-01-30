@@ -10,6 +10,7 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
+  Settings,
 } from 'lucide-react';
 
 interface NavItem {
@@ -33,6 +34,11 @@ const navItems: NavItem[] = [
     label: 'Expo',
     href: '/admin/expo',
     icon: Calendar,
+  },
+  {
+    label: 'Expo Settings',
+    href: '/admin/expo/settings',
+    icon: Settings,
   },
   {
     label: 'Prestasi',

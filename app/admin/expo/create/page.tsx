@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Info } from 'lucide-react';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import ImageUpload from '@/components/admin/ImageUpload';
 
 interface ExpoFormData {
   nama_event: string;
@@ -23,6 +24,8 @@ interface ExpoFormData {
   registration_open: boolean;
   registration_deadline: string;
   max_participants: number;
+  poster: string;
+  tipe_pendaftaran: string;
 }
 
 const initialFormData: ExpoFormData = {
@@ -38,16 +41,25 @@ const initialFormData: ExpoFormData = {
   benefit: '',
   website_resmi: '',
   is_featured: false,
-  status: 'upcoming',
+  status: 'draft',
   registration_open: false,
   registration_deadline: '',
   max_participants: 0,
+  poster: '',
+  tipe_pendaftaran: 'internal',
 };
 
 const statusOptions = [
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'ongoing', label: 'Ongoing' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'draft', label: 'Draft (Belum dipublish)' },
+  { value: 'upcoming', label: 'Published (Akan datang)' },
+  { value: 'ongoing', label: 'Sedang Berlangsung' },
+  { value: 'completed', label: 'Selesai' },
+];
+
+const tipePendaftaranOptions = [
+  { value: 'internal', label: 'Internal', desc: 'Pendaftaran melalui form di website ini' },
+  { value: 'eksternal', label: 'Eksternal', desc: 'Pendaftaran melalui link website penyelenggara' },
+  { value: 'none', label: 'Info Only', desc: 'Hanya informasi, tanpa pendaftaran' },
 ];
 
 export default function CreateExpoPage() {
@@ -173,6 +185,83 @@ export default function CreateExpoPage() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Poster Upload */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">Poster Expo</h2>
+          <ImageUpload
+            value={formData.poster}
+            onChange={(value) => setFormData(prev => ({ ...prev, poster: value as string }))}
+            category="expo"
+            label="Upload Poster"
+            helperText="Ukuran rekomendasi: 800x1200px (Portrait). Max 5MB."
+          />
+        </div>
+
+        {/* Tipe Pendaftaran */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">Mode Pendaftaran</h2>
+          <div className="space-y-3">
+            {tipePendaftaranOptions.map(opt => (
+              <label 
+                key={opt.value}
+                className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
+                  formData.tipe_pendaftaran === opt.value 
+                    ? 'border-purple-500 bg-purple-50' 
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="tipe_pendaftaran"
+                  value={opt.value}
+                  checked={formData.tipe_pendaftaran === opt.value}
+                  onChange={handleChange}
+                  className="mt-1"
+                />
+                <div>
+                  <span className="font-medium text-slate-800">{opt.label}</span>
+                  <p className="text-sm text-slate-500">{opt.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+          
+          {formData.tipe_pendaftaran === 'eksternal' && (
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Link Pendaftaran Eksternal <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="url"
+                name="website_resmi"
+                value={formData.website_resmi}
+                onChange={handleChange}
+                required={formData.tipe_pendaftaran === 'eksternal'}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="https://website-penyelenggara.com/daftar"
+              />
+            </div>
+          )}
+
+          {formData.tipe_pendaftaran === 'internal' && (
+            <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg flex items-start gap-3">
+              <Info size={20} className="text-purple-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-purple-800">
+                Pendaftaran akan menggunakan form bawaan website.
+              </p>
+            </div>
+          )}
+
+          {formData.tipe_pendaftaran === 'none' && (
+            <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg flex items-start gap-3">
+              <Info size={20} className="text-slate-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-slate-700">
+                Expo ini hanya menampilkan informasi tanpa tombol pendaftaran.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Date & Location */}

@@ -66,8 +66,9 @@ export default function KalenderPage() {
     async function fetchEvents() {
       setLoading(true);
       try {
-        const monthStr = format(currentMonth, 'yyyy-MM');
-        const res = await fetch(`/api/calendar?month=${monthStr}`);
+        const month = currentMonth.getMonth() + 1; // 1-based month
+        const year = currentMonth.getFullYear();
+        const res = await fetch(`/api/calendar?month=${month}&year=${year}`);
         const data = await res.json();
 
         if (data.success && data.data && Array.isArray(data.data.events)) {

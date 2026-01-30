@@ -44,6 +44,7 @@ export interface LombaCardProps {
   tingkat: string;
   status: 'open' | 'closed' | 'coming-soon';
   image?: string;
+  posterUrl?: string | null;
   isUrgent?: boolean;
   isFree?: boolean;
 }
@@ -57,16 +58,18 @@ const LombaCard = ({
   tingkat,
   status,
   image,
+  posterUrl,
   isUrgent,
   isFree,
 }: LombaCardProps) => {
+  const imageUrl = image || posterUrl;
   return (
     <Card className="flex flex-col h-full">
       {/* Image */}
       <div className="relative aspect-[4/3] bg-gray-100">
-        {image ? (
+        {imageUrl ? (
           <Image
-            src={image}
+            src={imageUrl}
             alt={title}
             fill
             className="object-cover"
@@ -231,6 +234,7 @@ interface ExpoCardProps {
   tanggal: string;
   lokasi: string;
   image?: string;
+  posterUrl?: string | null;
 }
 
 const ExpoCard = ({
@@ -239,14 +243,16 @@ const ExpoCard = ({
   tanggal,
   lokasi,
   image,
+  posterUrl,
 }: ExpoCardProps) => {
+  const imageUrl = image || posterUrl;
   return (
     <Card className="flex flex-col h-full">
       {/* Image */}
       <div className="relative aspect-video bg-gray-100">
-        {image ? (
+        {imageUrl ? (
           <Image
-            src={image}
+            src={imageUrl}
             alt={title}
             fill
             className="object-cover"

@@ -13,7 +13,9 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   Grid3X3,
-  List
+  List,
+  Calendar,
+  AlertCircle,
 } from 'lucide-react';
 
 interface ExpoItem {
@@ -29,16 +31,26 @@ interface ExpoItem {
   posterUrl?: string;
 }
 
-interface ExpoPageClientProps {
-  initialData: ExpoItem[];
+interface ExpoSettings {
+  is_active: boolean;
+  inactive_message: string;
+  next_expo_date: string | null;
 }
 
-export default function ExpoPageClient({ initialData }: ExpoPageClientProps) {
+interface ExpoPageClientProps {
+  initialData: ExpoItem[];
+  settings?: ExpoSettings;
+}
+
+export default function ExpoPageClient({ initialData, settings }: ExpoPageClientProps) {
   const [expoData] = useState<ExpoItem[]>(initialData);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Check if expo is inactive
+  const isInactive = settings && !settings.is_active;
 
   // Filter by search and tab
   const filteredExpo = expoData.filter((expo) => {
@@ -56,6 +68,60 @@ export default function ExpoPageClient({ initialData }: ExpoPageClientProps) {
   const totalPages = Math.ceil(filteredExpo.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedExpo = filteredExpo.slice(startIndex, startIndex + itemsPerPage);
+
+  // If expo is inactive, show message
+  if (isInactive) {
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-100">
+          <div className="container-apm py-6">
+            <Breadcrumb items={[{ label: 'Expo & Pameran' }]} />
+            <h1 className="text-2xl lg:text-3xl font-bold text-text-main mt-4">
+              Expo & Pameran
+            </h1>
+          </div>
+        </div>
+
+        {/* Inactive Message */}
+        <div className="container-apm py-16">
+          <div className="max-w-lg mx-auto text-center">
+            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-10 h-10 text-amber-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-slate-800 mb-3">
+              Expo Sedang Tidak Tersedia
+            </h2>
+            <p className="text-slate-600 mb-6">
+              {settings?.inactive_message || 'Belum ada expo saat ini. Nantikan update selanjutnya!'}
+            </p>
+            
+            {settings?.next_expo_date && (
+              <div className="inline-flex items-center gap-2 px-4 py-3 bg-blue-50 rounded-lg text-blue-700">
+                <Calendar className="w-5 h-5" />
+                <span>
+                  Expo berikutnya: {new Date(settings.next_expo_date).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </span>
+              </div>
+            )}
+            
+            <div className="mt-8">
+              <Link 
+                href="/"
+                className="inline-flex items-center px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors"
+              >
+                Kembali ke Beranda
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

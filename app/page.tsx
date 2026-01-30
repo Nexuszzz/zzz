@@ -54,6 +54,7 @@ async function getLomba() {
       status: item.status || 'open',
       isUrgent: item.isUrgent,
       isFree: item.isFree,
+      image: item.posterUrl || null,
     }));
   } catch (error) {
     console.error('Error fetching lomba:', error);
@@ -82,6 +83,7 @@ async function getPrestasi() {
       tahun: item.tahun,
       kategori: item.kategori || '',
       isVerified: true,
+      foto: item.thumbnailUrl || (Array.isArray(item.galeri) && item.galeri.length > 0 ? item.galeri[0] : null),
     }));
   } catch (error) {
     console.error('Error fetching prestasi:', error);
