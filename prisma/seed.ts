@@ -31,13 +31,13 @@ async function main() {
   // ================================
   console.log('Creating admin users...')
 
-  const adminPassword = await bcrypt.hash('Admin123!', 12)
+  const adminPassword = await bcrypt.hash('jtdwengdev', 12)
 
   const superadmin = await prisma.admin.upsert({
-    where: { email: 'admin@apm.undip.ac.id' },
+    where: { email: 'admin@apm.polinema.ac.id' },
     update: {},
     create: {
-      email: 'admin@apm.undip.ac.id',
+      email: 'admin@apm.polinema.ac.id',
       password_hash: adminPassword,
       name: 'Super Admin APM',
       role: 'superadmin',
@@ -47,10 +47,10 @@ async function main() {
   console.log(`  ✓ Created superadmin: ${superadmin.email}`)
 
   const editor = await prisma.admin.upsert({
-    where: { email: 'editor@apm.undip.ac.id' },
+    where: { email: 'editor@apm.polinema.ac.id' },
     update: {},
     create: {
-      email: 'editor@apm.undip.ac.id',
+      email: 'editor@apm.polinema.ac.id',
       password_hash: adminPassword,
       name: 'Editor APM',
       role: 'editor',
@@ -150,8 +150,8 @@ async function main() {
   console.log('✅ Database seeding completed!')
   console.log('')
   console.log('📝 Admin Credentials:')
-  console.log('   Email: admin@apm.undip.ac.id')
-  console.log('   Password: Admin123!')
+  console.log('   Email: admin@apm.polinema.ac.id')
+  console.log('   Password: jtdwengdev')
   console.log('')
 }
 
