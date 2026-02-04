@@ -66,22 +66,18 @@
 | Admin Prestasi Verify | `/app/admin/prestasi/page.tsx` | ⚠️ Bermasalah (token) |
 | Kalender | `/app/kalender/page.tsx` | ✅ Menampilkan lomba |
 | Auth Middleware | `/middleware.ts` | ✅ Cookie-based |
-| Admin Login | `/app/admin/login/page.tsx` | ✅ Directus-based |
+| Admin Login | `/app/admin/login/page.tsx` | ✅ JWT-based |
 
 ### ❌ Masalah Saat Ini
-1. **Token Expiry** - Directus token sering expired (15 menit)
-2. **Status Mapping** - `approved` vs `verified` membingungkan
-3. **Cache Issues** - UI tidak update setelah verifikasi
-4. **External Dependency** - Terlalu bergantung pada Directus API
-5. **Limited Flexibility** - Form pendaftaran tidak bisa custom per lomba
+1. **Status Mapping** - `approved` vs `verified` membingungkan
+2. **Cache Issues** - UI tidak update setelah verifikasi
+3. **Limited Flexibility** - Form pendaftaran tidak bisa custom per lomba
 
 ### 🔄 Alur Data Saat Ini
 ```
-┌─────────────┐     ┌──────────────────┐     ┌───────────────┐
-│   Frontend  │────▶│ Next.js API Route│────▶│ Directus API  │────▶ PostgreSQL
-└─────────────┘     └──────────────────┘     └───────────────┘
-                           ↑
-                    Token issues di sini
+┌─────────────┐     ┌──────────────────┐     ┌──────────────┐
+│   Frontend  │────▶│ Next.js API Route│────▶│  PostgreSQL  │
+└─────────────┘     └──────────────────┘     └──────────────┘
 ```
 
 ---
@@ -89,10 +85,9 @@
 ## 2. ARSITEKTUR BARU
 
 ### 🎯 Prinsip Desain
-1. **Langsung ke Database** - Skip Directus untuk data transaksional
-2. **Directus untuk CMS** - Tetap pakai untuk konten statis (FAQ, Tips, About)
-3. **Type-Safe** - Prisma ORM untuk query aman
-4. **Modular** - Fitur terpisah, mudah maintain
+1. **Langsung ke Database** - Direct access via Prisma ORM
+2. **Type-Safe** - Prisma ORM untuk query aman
+3. **Modular** - Fitur terpisah, mudah maintain
 
 ### 📊 Arsitektur Hybrid
 ```
@@ -104,15 +99,15 @@
          ┌───────────────┼───────────────┐
          ▼               ▼               ▼
 ┌────────────────┐ ┌───────────────┐ ┌────────────────┐
-│ API: Custom    │ │ API: Custom   │ │ API: Directus  │
-│ (Transaksional)│ │ (Admin CRUD)  │ │ (CMS Content)  │
+│ API: Custom    │ │ API: Custom   │ │ API: Static    │
+│ (Transaksional)│ │ (Admin CRUD)  │ │ (Content)      │
 ├────────────────┤ ├───────────────┤ ├────────────────┤
 │ • Submission   │ │ • Lomba CRUD  │ │ • FAQ          │
 │ • Registration │ │ • Expo CRUD   │ │ • Tips         │
-│ • Verification │ │ • Prestasi    │ │ • About        │
-│ • File Upload  │ │   Management  │ │ • Team         │
-└───────┬────────┘ └───────┬───────┘ └───────┬────────┘
-        │                  │                 │
+│ • Verification │ │ • Prestasi    │ │ • Panduan      │
+│ • File Upload  │ │   Management  │ │                │
+└───────┬────────┘ └───────┬───────┘ └────────────────┘
+        │                  │
         └──────────────────┼─────────────────┘
                            ▼
                    ┌───────────────┐
@@ -871,7 +866,7 @@ Karena setiap kompetisi dari penyelenggara berbeda-beda, mahasiswa **bebas mengi
 
 **Keputusan: Custom JWT + Database**
 - ✅ Full control
-- ✅ No external dependency (bye bye Directus token issues!)
+- ✅ No external dependency
 - ✅ Session 7 hari (bisa lebih lama)
 - ✅ Simple & reliable
 

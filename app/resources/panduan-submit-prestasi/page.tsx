@@ -1,11 +1,11 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Breadcrumb, Button } from '@/components/ui';
-import { BookOpen, ArrowLeft, CheckCircle, HelpCircle } from 'lucide-react';
+import { Trophy, ArrowLeft, HelpCircle } from 'lucide-react';
 
 export const metadata: Metadata = {
-    title: 'Panduan Daftar Lomba | APM Polinema',
-    description: 'Panduan lengkap cara mencari dan mendaftar lomba melalui APM',
+    title: 'Panduan Submit Prestasi | APM Polinema',
+    description: 'Panduan lengkap cara melaporkan prestasi yang sudah diraih',
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
@@ -18,7 +18,7 @@ interface Step {
 
 async function getPanduan(): Promise<Step[]> {
     try {
-        const res = await fetch(`${BASE_URL}/api/panduan?type=lomba`, {
+        const res = await fetch(`${BASE_URL}/api/panduan?type=prestasi`, {
             next: { revalidate: 60 },
         });
         if (!res.ok) return [];
@@ -29,28 +29,28 @@ async function getPanduan(): Promise<Step[]> {
     }
 }
 
-export default async function PanduanPage() {
+export default async function PanduanSubmitPrestasiPage() {
     const steps = await getPanduan();
 
     return (
         <div className="min-h-screen bg-background">
             {/* Hero Header - APM Style */}
-            <section className="bg-gradient-to-br from-primary via-primary-600 to-primary-700 text-white">
+            <section className="bg-gradient-to-br from-success via-emerald-600 to-teal-600 text-white">
                 <div className="container-apm py-12">
                     <Breadcrumb
                         items={[
                             { label: 'Resources', href: '/resources' },
-                            { label: 'Panduan Daftar Lomba' },
+                            { label: 'Panduan Submit Prestasi' },
                         ]}
                         className="text-white/70 [&_a]:text-white/70 [&_a:hover]:text-white mb-6"
                     />
                     <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
-                            <BookOpen className="w-8 h-8 text-accent" />
+                            <Trophy className="w-8 h-8 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold font-heading">Panduan Daftar Lomba</h1>
-                            <p className="text-white/80 mt-1">Langkah-langkah mencari dan mendaftar lomba via APM</p>
+                            <h1 className="text-3xl font-bold font-heading">Panduan Submit Prestasi</h1>
+                            <p className="text-white/80 mt-1">Langkah-langkah melaporkan prestasi yang sudah diraih</p>
                         </div>
                     </div>
                 </div>
@@ -65,9 +65,9 @@ export default async function PanduanPage() {
                             {steps.map((item, index) => (
                                 <div
                                     key={index}
-                                    className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm hover:shadow-lg hover:border-primary/20 transition-all flex items-start gap-4"
+                                    className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm hover:shadow-lg hover:border-success/20 transition-all flex items-start gap-4"
                                 >
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center flex-shrink-0 shadow-lg">
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-success to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg">
                                         <span className="text-white font-bold text-lg">{item.step}</span>
                                     </div>
                                     <div className="pt-2">
@@ -79,14 +79,14 @@ export default async function PanduanPage() {
                         </div>
 
                         {/* Help Section */}
-                        <div className="mt-8 p-6 bg-primary/5 border border-primary/20 rounded-xl">
+                        <div className="mt-8 p-6 bg-success/5 border border-success/20 rounded-xl">
                             <div className="flex items-start gap-3">
-                                <HelpCircle className="w-6 h-6 text-primary flex-shrink-0 mt-0.5" />
+                                <HelpCircle className="w-6 h-6 text-success flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <h4 className="font-semibold text-primary">Butuh Bantuan?</h4>
+                                    <h4 className="font-semibold text-success">Butuh Bantuan?</h4>
                                     <p className="text-text-muted text-sm mt-1">
-                                        Hubungi tim APM jika ada pertanyaan tentang proses pendaftaran atau kunjungi halaman{' '}
-                                        <Link href="/resources/faq" className="text-primary hover:underline">
+                                        Hubungi tim APM jika ada pertanyaan tentang proses submit prestasi atau kunjungi halaman{' '}
+                                        <Link href="/resources/faq" className="text-success hover:underline">
                                             FAQ
                                         </Link>
                                         .
@@ -95,10 +95,16 @@ export default async function PanduanPage() {
                             </div>
                         </div>
 
-                        {/* Back Button */}
-                        <div className="mt-8 text-center">
+                        {/* CTA Buttons */}
+                        <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+                            <Link href="/prestasi/submit">
+                                <Button variant="primary" size="lg" className="bg-success hover:bg-emerald-600">
+                                    <Trophy className="w-4 h-4 mr-2" />
+                                    Laporkan Prestasi Sekarang
+                                </Button>
+                            </Link>
                             <Link href="/resources">
-                                <Button variant="outline">
+                                <Button variant="outline" size="lg">
                                     <ArrowLeft className="w-4 h-4 mr-2" />
                                     Kembali ke Resources
                                 </Button>

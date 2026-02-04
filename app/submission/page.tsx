@@ -65,7 +65,7 @@ export default function SubmissionPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [contactInfo, setContactInfo] = useState({ email: 'apm@polinema.ac.id', whatsapp: '+62 812-3456-7890' });
 
-  // Fetch contact info from Directus
+  // Fetch contact info from API
   useEffect(() => {
     const fetchContactInfo = async () => {
       try {

@@ -9,6 +9,14 @@ export const metadata: Metadata = {
   },
   description:
     'Portal Ajang Prestasi Mahasiswa Polinema - Informasi lomba, kompetisi, prestasi, dan expo untuk mahasiswa.',
+  icons: {
+    icon: [
+      { url: '/logo/logo.ico' },
+      { url: '/logo/logo.png', type: 'image/png', sizes: '32x32' },
+    ],
+    apple: { url: '/logo/logo.png', sizes: '180x180' },
+    shortcut: '/logo/logo.ico',
+  },
   keywords: [
     'lomba mahasiswa',
     'kompetisi',

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Eye, EyeOff, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function AdminLoginPage() {
@@ -49,9 +50,13 @@ export default function AdminLoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 mb-4">
-            <div className="w-14 h-14 bg-[#0B4F94] rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">APM</span>
-            </div>
+            <Image
+              src="/logo/logo.png"
+              alt="APM Logo"
+              width={56}
+              height={56}
+              className="w-14 h-14 object-contain"
+            />
           </Link>
           <h1 className="text-2xl font-bold text-[#0F172A]">Admin Portal</h1>
           <p className="text-[#64748B] mt-1">Masuk untuk mengelola dashboard</p>

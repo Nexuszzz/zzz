@@ -112,9 +112,7 @@ components/ui/Skeleton.tsx
 components/ui/Tabs.tsx
 components/ui/index.ts
 deploy.bat
-docker-compose.yml
 docs/BLUEPRINT.md
-docs/DIRECTUS_PLAN.md
 docs/QUICKSTART.md
 docs/STATUS-ANALYSIS.md
 hooks/index.ts
@@ -139,7 +137,6 @@ html-export/search.html
 html-export/submit.html
 lib/api.ts
 lib/constants.ts
-lib/directus.ts
 lib/seo.ts
 lib/utils.ts
 middleware.ts
@@ -148,7 +145,6 @@ package-lock.json
 package.json
 postcss.config.js
 scripts/seed-data.ts
-scripts/setup-directus.ts
 scripts/setup-permissions.ts
 scripts/update-schema.sql
 tailwind.config.ts

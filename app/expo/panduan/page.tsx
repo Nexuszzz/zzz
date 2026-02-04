@@ -1,184 +1,162 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Breadcrumb, Button } from '@/components/ui';
-import { BookOpen, ArrowLeft, CheckCircle, AlertTriangle, FileText, Users, Presentation } from 'lucide-react';
+import { BookOpen, ArrowLeft, FileText, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
 
 export const metadata: Metadata = {
-    title: 'Panduan Partisipasi | APM Polinema',
-    description: 'Panduan lengkap untuk berpartisipasi dalam expo',
+    title: 'Panduan Expo | APM Polinema',
+    description: 'Panduan lengkap untuk mengikuti expo dan pameran',
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-
-interface Step {
-    step: number;
-    title: string;
-    description: string;
-}
-
-const guidelines = {
-    persyaratan: [
-        'Mahasiswa aktif Polinema',
-        'Memiliki karya/proyek yang siap dipamerkan',
-        'Mendapat persetujuan dosen pembimbing',
-        'Mengisi formulir pendaftaran',
-    ],
-    dokumen: [
-        'Proposal singkat proyek (maks. 5 halaman)',
-        'Foto/video prototype atau produk',
-        'Surat rekomendasi dari dosen',
-        'KTM aktif',
-    ],
-    booth: [
-        'Ukuran booth standar: 2m x 2m',
-        'Meja dan kursi disediakan panitia',
-        'Poster A1 wajib disiapkan peserta',
-        'Listrik tersedia (maks. 500W)',
-    ],
-};
-
-async function getExpoSteps(): Promise<Step[]> {
-    try {
-        const res = await fetch(`${BASE_URL}/api/panduan?type=expo`, {
-            next: { revalidate: 60 },
-        });
-        if (!res.ok) return [];
-        const data = await res.json();
-        return data.data || [];
-    } catch {
-        return [];
-    }
-}
-
-export default async function PanduanExpoPage() {
-    const steps = await getExpoSteps();
+export default function PanduanExpoPage() {
+    const features = [
+        {
+            icon: FileText,
+            title: 'Syarat Pendaftaran',
+            description: 'Dokumen dan persyaratan untuk mengikuti expo',
+            gradient: 'from-blue-500 to-blue-600',
+        },
+        {
+            icon: Calendar,
+            title: 'Timeline Kegiatan',
+            description: 'Jadwal lengkap dari persiapan hingga acara',
+            gradient: 'from-purple-500 to-purple-600',
+        },
+        {
+            icon: CheckCircle,
+            title: 'Checklist Persiapan',
+            description: 'Daftar hal yang perlu disiapkan sebelum expo',
+            gradient: 'from-emerald-500 to-emerald-600',
+        },
+        {
+            icon: AlertCircle,
+            title: 'Tips & Trik',
+            description: 'Saran dan strategi dari peserta sebelumnya',
+            gradient: 'from-amber-400 to-amber-500',
+        },
+    ];
 
     return (
         <div className="min-h-screen bg-background">
-            {/* Hero Header - APM Style */}
-            <section className="bg-gradient-to-br from-primary via-primary-600 to-primary-700 text-white">
+            {/* Hero Header */}
+            <section className="bg-gradient-to-br from-secondary via-secondary to-primary text-white">
                 <div className="container-apm py-12">
                     <Breadcrumb
                         items={[
                             { label: 'Expo', href: '/expo' },
-                            { label: 'Panduan Partisipasi' },
+                            { label: 'Panduan' },
                         ]}
                         className="text-white/70 [&_a]:text-white/70 [&_a:hover]:text-white mb-6"
                     />
                     <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
-                            <BookOpen className="w-8 h-8 text-accent" />
+                            <BookOpen className="w-8 h-8 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold font-heading">Panduan Partisipasi</h1>
-                            <p className="text-white/80 mt-1">Cara ikut serta dalam expo APM</p>
+                            <h1 className="text-3xl font-bold font-heading">Panduan Expo</h1>
+                            <p className="text-white/80 mt-1">Panduan lengkap mengikuti expo</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Content */}
-            <section className="py-10">
+            {/* Coming Soon Content */}
+            <section className="py-16">
                 <div className="container-apm">
-                    {/* Info Cards */}
-                    <div className="grid gap-6 md:grid-cols-3 mb-10">
-                        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                    <Users className="w-5 h-5 text-primary" />
-                                </div>
-                                <h3 className="font-semibold text-text-main">Persyaratan Umum</h3>
+                    <div className="max-w-4xl mx-auto">
+                        {/* Main Coming Soon Card */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-8 lg:p-12 text-center shadow-sm mb-8">
+                            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-secondary to-primary mb-6 shadow-lg">
+                                <BookOpen className="w-10 h-10 text-white" />
                             </div>
-                            <ul className="space-y-2">
-                                {guidelines.persyaratan.map((item, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-sm text-text-muted">
-                                        <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                                        {item}
-                                    </li>
-                                ))}
-                            </ul>
+                            
+                            <span className="inline-block px-4 py-2 rounded-full bg-secondary/10 text-secondary text-sm font-medium mb-4">
+                                Dalam Pengembangan
+                            </span>
+                            
+                            <h2 className="text-2xl lg:text-3xl font-bold text-text-main mb-4">
+                                Panduan Expo Sedang Dikembangkan
+                            </h2>
+                            
+                            <p className="text-text-muted text-lg mb-6 max-w-2xl mx-auto">
+                                Sistem panduan lengkap untuk mengikuti expo masih dalam tahap pengembangan. Fitur ini akan berisi tutorial step-by-step, checklist persiapan, dan tips sukses mengikuti expo.
+                            </p>
+
+                            <div className="flex items-center justify-center gap-2 text-secondary mb-8">
+                                <Calendar className="w-5 h-5" />
+                                <span className="font-medium">Estimasi: Q2 2026</span>
+                            </div>
                         </div>
 
-                        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-                                    <FileText className="w-5 h-5 text-secondary" />
-                                </div>
-                                <h3 className="font-semibold text-text-main">Dokumen Dibutuhkan</h3>
-                            </div>
-                            <ul className="space-y-2">
-                                {guidelines.dokumen.map((item, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-sm text-text-muted">
-                                        <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                                        {item}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-
-                        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                                    <Presentation className="w-5 h-5 text-accent" />
-                                </div>
-                                <h3 className="font-semibold text-text-main">Standar Booth</h3>
-                            </div>
-                            <ul className="space-y-2">
-                                {guidelines.booth.map((item, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-sm text-text-muted">
-                                        <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                                        {item}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-
-                    {/* Steps */}
-                    {steps.length > 0 && (
-                        <>
-                            <h2 className="text-xl font-bold text-text-main mb-4">Langkah Pendaftaran</h2>
-                            <div className="space-y-4 mb-8">
-                                {steps.map((item, index) => (
-                                    <div
-                                        key={index}
-                                        className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm flex items-start gap-4"
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0">
-                                            <span className="text-white font-bold">{item.step}</span>
-                                        </div>
-                                        <div className="pt-1">
-                                            <h3 className="font-semibold text-text-main">{item.title}</h3>
-                                            <p className="text-sm text-text-muted">{item.description}</p>
-                                        </div>
+                        {/* Features Preview */}
+                        <div className="grid md:grid-cols-2 gap-6 mb-8">
+                            {features.map((feature, index) => (
+                                <div
+                                    key={index}
+                                    className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow"
+                                >
+                                    <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} mb-4 shadow-md`}>
+                                        <feature.icon className="w-6 h-6 text-white" />
                                     </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
-
-                    {/* Warning */}
-                    <div className="p-6 bg-accent/5 border border-accent/20 rounded-xl mb-8">
-                        <div className="flex items-start gap-3">
-                            <AlertTriangle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
-                            <div>
-                                <h4 className="font-semibold text-accent">Penting!</h4>
-                                <p className="text-text-muted text-sm mt-1">
-                                    Pendaftaran harus dilakukan paling lambat 2 minggu sebelum tanggal expo.
-                                    Hubungi tim APM jika ada kendala.
-                                </p>
-                            </div>
+                                    <h3 className="font-semibold text-text-main text-lg mb-2">
+                                        {feature.title}
+                                    </h3>
+                                    <p className="text-text-muted text-sm">
+                                        {feature.description}
+                                    </p>
+                                </div>
+                            ))}
                         </div>
-                    </div>
 
-                    {/* Back Button */}
-                    <div className="text-center">
-                        <Link href="/expo">
-                            <Button variant="outline">
-                                <ArrowLeft className="w-4 h-4 mr-2" />
-                                Kembali ke Expo
-                            </Button>
-                        </Link>
+                        {/* Info Box */}
+                        <div className="bg-gradient-to-br from-secondary/5 to-primary/5 rounded-xl border border-secondary/10 p-6 mb-8">
+                            <h3 className="font-semibold text-text-main mb-3 flex items-center gap-2">
+                                <BookOpen className="w-5 h-5 text-secondary" />
+                                Konten Panduan Yang Akan Tersedia
+                            </h3>
+                            <ul className="space-y-2 text-text-muted text-sm">
+                                <li className="flex items-start gap-2">
+                                    <span className="text-secondary mt-0.5">•</span>
+                                    <span>Alur pendaftaran expo dari awal hingga akhir</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-secondary mt-0.5">•</span>
+                                    <span>Dokumen yang wajib disiapkan peserta</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-secondary mt-0.5">•</span>
+                                    <span>Timeline persiapan (H-30 hingga hari-H)</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-secondary mt-0.5">•</span>
+                                    <span>Tips setup booth dan display karya yang menarik</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-secondary mt-0.5">•</span>
+                                    <span>Cara presentasi yang efektif ke pengunjung</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-secondary mt-0.5">•</span>
+                                    <span>Video tutorial dan dokumentasi expo sebelumnya</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* CTA Buttons */}
+                        <div className="flex flex-col sm:flex-row justify-center gap-4">
+                            <Link href="/expo">
+                                <Button variant="primary" size="lg" className="bg-secondary hover:bg-secondary/90">
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Daftar Expo
+                                </Button>
+                            </Link>
+                            <Link href="/expo">
+                                <Button variant="outline" size="lg">
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Kembali ke Expo
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </section>

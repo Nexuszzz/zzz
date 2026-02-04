@@ -1,57 +1,57 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Breadcrumb, Button, Badge } from '@/components/ui';
-import { Download, ArrowLeft, FileText, FileArchive, Video, File } from 'lucide-react';
+import { Download, ArrowLeft, FileText, Video, BookOpen, FileCheck, Lightbulb } from 'lucide-react';
 
 export const metadata: Metadata = {
     title: 'Download Materi | APM Polinema',
     description: 'Download materi persiapan lomba dari APM',
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-
-interface DownloadItem {
-    id: string;
-    title: string;
-    description: string;
-    format: string;
-    size: string;
-    category: string;
-    downloadUrl: string;
-}
-
-const formatIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-    PDF: File,
-    PPTX: FileText,
-    ZIP: FileArchive,
-    MP4: Video,
-    default: FileText,
-};
-
-const formatColors: Record<string, string> = {
-    PDF: 'bg-red-100 text-red-700',
-    PPTX: 'bg-orange-100 text-orange-700',
-    ZIP: 'bg-purple-100 text-purple-700',
-    MP4: 'bg-pink-100 text-pink-700',
-    default: 'bg-gray-100 text-gray-700',
-};
-
-async function getDownloads(): Promise<DownloadItem[]> {
-    try {
-        const res = await fetch(`${BASE_URL}/api/downloads`, {
-            next: { revalidate: 60 },
-        });
-        if (!res.ok) return [];
-        const data = await res.json();
-        return data.data || [];
-    } catch {
-        return [];
-    }
-}
+const upcomingMaterials = [
+    {
+        icon: FileText,
+        title: 'Panduan Proposal Lomba',
+        description: 'Panduan lengkap struktur dan cara menulis proposal untuk berbagai jenis kompetisi',
+        color: 'from-blue-500 to-blue-600',
+        bgColor: 'bg-blue-50',
+        textColor: 'text-blue-700'
+    },
+    {
+        icon: FileCheck,
+        title: 'Template Presentasi',
+        description: 'Template slide presentasi dan pitch deck yang profesional dan menarik',
+        color: 'from-purple-500 to-purple-600',
+        bgColor: 'bg-purple-50',
+        textColor: 'text-purple-700'
+    },
+    {
+        icon: Video,
+        title: 'Video Tutorial',
+        description: 'Tutorial video lengkap tentang persiapan dan strategi mengikuti kompetisi',
+        color: 'from-pink-500 to-pink-600',
+        bgColor: 'bg-pink-50',
+        textColor: 'text-pink-700'
+    },
+    {
+        icon: BookOpen,
+        title: 'E-book & Modul',
+        description: 'Materi pembelajaran digital untuk meningkatkan kemampuan teknis dan soft skill',
+        color: 'from-emerald-500 to-emerald-600',
+        bgColor: 'bg-emerald-50',
+        textColor: 'text-emerald-700'
+    },
+    {
+        icon: Lightbulb,
+        title: 'Studi Kasus Pemenang',
+        description: 'Contoh proposal dan karya dari mahasiswa yang berhasil meraih juara',
+        color: 'from-amber-500 to-amber-600',
+        bgColor: 'bg-amber-50',
+        textColor: 'text-amber-700'
+    },
+];
 
 export default async function DownloadPage() {
-    const downloads = await getDownloads();
-
     return (
         <div className="min-h-screen bg-background">
             {/* Hero Header - APM Style */}
@@ -76,51 +76,69 @@ export default async function DownloadPage() {
                 </div>
             </section>
 
-            {/* Content */}
-            <section className="py-10">
+            {/* Coming Soon Content */}
+            <section className="py-16">
                 <div className="container-apm">
-                    <div className="space-y-4">
-                        {downloads.map((item) => {
-                            const IconComponent = formatIcons[item.format] || formatIcons.default;
-                            const colorClass = formatColors[item.format] || formatColors.default;
+                    <div className="max-w-5xl mx-auto">
+                        {/* Status Badge & Title */}
+                        <div className="text-center mb-12">
+                            <Badge variant="secondary" className="mb-4">
+                                Dalam Pengembangan
+                            </Badge>
+                            <h2 className="text-3xl font-bold text-gray-900 mb-4">Segera Hadir</h2>
+                            <p className="text-text-muted text-lg max-w-2xl mx-auto">
+                                Tim APM sedang menyusun koleksi materi berkualitas untuk mendukung kesuksesan kompetisi mahasiswa Jurusan Teknik Elektro - Prodi Telekomunikasi.
+                            </p>
+                        </div>
 
-                            return (
-                                <div
-                                    key={item.id}
-                                    className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-lg hover:border-primary/20 transition-all flex items-center justify-between gap-4"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                            <IconComponent className="w-6 h-6 text-primary" />
+                        {/* Materials Grid */}
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-12">
+                            {upcomingMaterials.map((material, index) => {
+                                const IconComponent = material.icon;
+                                return (
+                                    <div
+                                        key={index}
+                                        className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+                                    >
+                                        <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${material.color} flex items-center justify-center mb-4`}>
+                                            <IconComponent className="w-6 h-6 text-white" />
                                         </div>
-                                        <div>
-                                            <h3 className="font-semibold text-text-main">{item.title}</h3>
-                                            <p className="text-sm text-text-muted">{item.description}</p>
-                                            <div className="flex gap-2 mt-2">
-                                                <Badge className={colorClass}>{item.format}</Badge>
-                                                <span className="text-xs text-text-muted">{item.size}</span>
-                                            </div>
-                                        </div>
+                                        <h3 className="font-semibold text-gray-900 mb-2">{material.title}</h3>
+                                        <p className="text-sm text-text-muted leading-relaxed">{material.description}</p>
                                     </div>
-                                    <a href={item.downloadUrl} target="_blank" rel="noopener noreferrer">
-                                        <Button variant="primary" className="flex-shrink-0">
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Download
-                                        </Button>
-                                    </a>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                );
+                            })}
+                        </div>
 
-                    {/* Back Button */}
-                    <div className="mt-12 text-center">
-                        <Link href="/resources">
-                            <Button variant="outline">
-                                <ArrowLeft className="w-4 h-4 mr-2" />
-                                Kembali ke Resources
-                            </Button>
-                        </Link>
+                        {/* Info Box */}
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 mb-8">
+                            <div className="flex items-start gap-4">
+                                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                    <Download className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-gray-900 mb-2">Notifikasi Peluncuran</h3>
+                                    <p className="text-sm text-gray-600">
+                                        Materi download akan tersedia segera. Pantau terus portal APM atau hubungi tim APM untuk informasi lebih lanjut tentang ketersediaan materi.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* CTA Buttons */}
+                        <div className="flex flex-col sm:flex-row justify-center gap-4">
+                            <Link href="/resources/panduan">
+                                <Button variant="primary" size="lg">
+                                    Lihat Panduan Pendaftaran
+                                </Button>
+                            </Link>
+                            <Link href="/resources">
+                                <Button variant="outline" size="lg">
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Kembali ke Resources
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </section>

@@ -2,92 +2,101 @@
  * API Route: Get Tips & Strategi
  * GET /api/tips
  * 
- * Fetches tips data from Directus tips collection
- * Falls back to static data if collection doesn't exist
+ * Returns static tips data
  */
 
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
-
 // Static fallback data
 const staticTips = [
     {
         id: '1',
-        title: 'Pahami Kriteria Penilaian',
-        description: 'Baca dengan teliti kriteria penilaian yang diberikan panitia. Pastikan proposal atau karya Anda memenuhi setiap poin yang dinilai.',
+        title: 'Pilih Lomba yang Sesuai Passion',
+        description: 'Fokus pada lomba yang sesuai dengan minat dan keahlian Anda. Mahasiswa Telekomunikasi cocok untuk kompetisi IoT, Jaringan, Smart City, atau Startup berbasis teknologi komunikasi.',
         icon: 'target',
         order: 1,
     },
     {
         id: '2',
-        title: 'Riset Kompetitor',
-        description: 'Pelajari karya pemenang tahun-tahun sebelumnya untuk memahami standar yang diharapkan.',
+        title: 'Riset Pemenang Tahun Lalu',
+        description: 'Pelajari proposal atau karya juara tahun sebelumnya untuk memahami standar dan ekspektasi juri. Cek galeri Prestasi di portal APM untuk referensi.',
         icon: 'search',
         order: 2,
     },
     {
         id: '3',
-        title: 'Kerja Tim yang Solid',
-        description: 'Bentuk tim dengan skill yang saling melengkapi dan komunikasi yang baik.',
+        title: 'Bentuk Tim yang Kompak',
+        description: 'Pilih anggota tim dengan skill yang saling melengkapi: programmer, designer, presenter. Komunikasi dan chemistry tim sangat penting untuk kesuksesan.',
         icon: 'users',
         order: 3,
     },
     {
         id: '4',
-        title: 'Mulai Lebih Awal',
-        description: 'Jangan tunggu deadline mendekat. Mulai persiapan sejak informasi lomba dirilis.',
+        title: 'Manajemen Waktu yang Baik',
+        description: 'Buat timeline persiapan sejak awal. Jangan ngebut di akhir! Bagi tugas ke anggota tim dan set milestone mingguan untuk tracking progress.',
         icon: 'clock',
         order: 4,
     },
     {
         id: '5',
-        title: 'Minta Feedback Dosen',
-        description: 'Konsultasikan proposal atau karya Anda dengan dosen pembimbing untuk mendapat masukan.',
+        title: 'Konsultasi dengan Dosen',
+        description: 'Manfaatkan dosen pembimbing untuk review proposal, validasi teknis, dan masukan strategi presentasi. Pengalaman mereka sangat berharga.',
         icon: 'message-circle',
         order: 5,
     },
     {
         id: '6',
-        title: 'Latihan Presentasi',
-        description: 'Jika ada sesi presentasi, latih berulang kali hingga Anda percaya diri.',
+        title: 'Latihan Presentasi Berkali-kali',
+        description: 'Practice makes perfect! Latih pitch presentasi minimal 5-10 kali. Rekam video latihan, minta feedback teman, dan perbaiki terus hingga smooth dan percaya diri.',
         icon: 'mic',
         order: 6,
+    },
+    {
+        id: '7',
+        title: 'Fokus pada Problem & Solution',
+        description: 'Juri lebih tertarik pada solusi inovatif untuk masalah nyata. Tunjukkan pain point yang jelas, lalu jelaskan bagaimana karya Anda menyelesaikannya dengan unik.',
+        icon: 'lightbulb',
+        order: 7,
+    },
+    {
+        id: '8',
+        title: 'Sertakan Data & Validasi',
+        description: 'Dukung klaim dengan data riset, survey, atau hasil testing. Proposal dengan data valid lebih meyakinkan daripada sekadar asumsi.',
+        icon: 'target',
+        order: 8,
+    },
+    {
+        id: '9',
+        title: 'Baca Guideline Sampai Detail',
+        description: 'Banyak tim gugur karena kesalahan administratif seperti format salah atau dokumen kurang. Baca guidebook lomba sampai tuntas, highlight poin penting.',
+        icon: 'search',
+        order: 9,
+    },
+    {
+        id: '10',
+        title: 'Networking dengan Alumni Juara',
+        description: 'Hubungi kakak tingkat yang pernah juara untuk tips dan trik. Mereka punya pengalaman berharga yang bisa menghemat waktu persiapan Anda.',
+        icon: 'users',
+        order: 10,
+    },
+    {
+        id: '11',
+        title: 'Jaga Kesehatan Mental & Fisik',
+        description: 'Jangan begadang mepet deadline! Istirahat cukup, makan teratur, dan kelola stress. Performa terbaik datang dari kondisi tubuh dan pikiran yang sehat.',
+        icon: 'heart',
+        order: 11,
+    },
+    {
+        id: '12',
+        title: 'Percaya Diri & Enjoy the Process',
+        description: 'Lomba bukan hanya soal menang, tapi proses belajar. Nikmati setiap tahapannya, network dengan peserta lain, dan ambil pelajaran berharga untuk kompetisi berikutnya.',
+        icon: 'star',
+        order: 12,
     },
 ];
 
 export async function GET() {
-    try {
-        // Try to fetch from Directus first
-        const params = new URLSearchParams();
-        params.set('sort', 'urutan');
-        params.set('filter', JSON.stringify({ status: { _eq: 'published' } }));
-        params.set('fields', 'id,judul,deskripsi,icon,urutan');
-
-        const response = await fetch(`${DIRECTUS_URL}/items/tips?${params.toString()}`, {
-            next: { revalidate: 60 },
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            if (result.data && result.data.length > 0) {
-                const data = result.data.map((item: Record<string, unknown>) => ({
-                    id: String(item.id),
-                    title: item.judul,
-                    description: item.deskripsi,
-                    icon: item.icon || 'lightbulb',
-                    order: item.urutan,
-                }));
-                return NextResponse.json({ data, source: 'directus' });
-            }
-        }
-
-        // Fallback to static data
-        return NextResponse.json({ data: staticTips, source: 'static' });
-    } catch (error) {
-        console.error('Error fetching tips:', error);
-        return NextResponse.json({ data: staticTips, source: 'static' });
-    }
+    return NextResponse.json({ data: staticTips, source: 'static' });
 }

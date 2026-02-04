@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
@@ -62,17 +63,25 @@ export function Sidebar() {
         {/* Logo */}
         <div className="h-16 flex items-center justify-center border-b border-blue-400/20 px-4">
           {!collapsed ? (
-            <Link href="/admin" className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-lg">
-                <span className="text-[#0B4F94] font-bold text-lg">APM</span>
-              </div>
+            <Link href="/admin" className="flex items-center gap-3">
+              <Image
+                src="/logo/logo.png"
+                alt="APM Logo"
+                width={48}
+                height={48}
+                className="w-12 h-12 object-contain bg-white rounded-lg p-1 shadow-lg"
+              />
               <span className="font-bold text-xl">Admin Portal</span>
             </Link>
           ) : (
             <Link href="/admin">
-              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-lg">
-                <span className="text-[#0B4F94] font-bold text-lg">APM</span>
-              </div>
+              <Image
+                src="/logo/logo.png"
+                alt="APM Logo"
+                width={48}
+                height={48}
+                className="w-12 h-12 object-contain bg-white rounded-lg p-1 shadow-lg"
+              />
             </Link>
           )}
         </div>

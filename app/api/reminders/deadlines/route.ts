@@ -215,7 +215,6 @@ Tim APM Polinema
  * POST /api/reminders/deadlines
  * 
  * Create a custom reminder for a specific lomba
- * Note: This still uses Directus as reminders is a CMS feature
  */
 export async function POST(request: NextRequest) {
   try {

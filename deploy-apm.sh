@@ -32,13 +32,11 @@ fi
 # Create directories
 echo "📁 Creating project directories..."
 mkdir -p /var/www/apm-portal
-mkdir -p /var/www/apm-data/directus
 mkdir -p /var/www/apm-data/postgres
 
 # Set permissions
 chown -R www-data:www-data /var/www/apm-portal
 chown -R 999:999 /var/www/apm-data/postgres
-chown -R 1000:1000 /var/www/apm-data/directus
 
 echo "✅ Prerequisites installed successfully!"
 echo "📝 Next steps:"

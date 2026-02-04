@@ -1,5 +1,5 @@
 // APM Portal - Prisma Schema
-// Database: PostgreSQL (same instance as Directus)
+// Database: PostgreSQL (Neon Cloud)
 // 
 // Tables:
 // - Admin (custom auth)
@@ -14,7 +14,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================

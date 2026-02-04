@@ -2,15 +2,12 @@
  * API Route: Unified Search
  * GET /api/search?q=query
  * 
- * Search across lomba, prestasi, expo, and resources
- * Lomba, Prestasi, Expo use Prisma (apm_ tables)
- * Resources still uses Directus (CMS content)
+ * Search across lomba, prestasi, expo
+ * Uses Prisma (apm_ tables)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
-
-const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -176,40 +173,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Search Resources - still uses Directus (CMS content)
-    if (!type || type === 'all' || type === 'resources') {
-      try {
-        const resourcesParams = new URLSearchParams();
-        resourcesParams.set('limit', '10');
-        resourcesParams.set('filter', JSON.stringify({
-          is_published: { _eq: true },
-          _or: [
-            { judul: { _icontains: query } },
-            { deskripsi: { _icontains: query } },
-          ],
-        }));
-        resourcesParams.set('fields', 'id,judul,slug,kategori,deskripsi,thumbnail');
-
-        const resourcesRes = await fetch(`${DIRECTUS_URL}/items/resources?${resourcesParams.toString()}`, {
-          next: { revalidate: 60 },
-        });
-
-        if (resourcesRes.ok) {
-          const resourcesData = await resourcesRes.json();
-          results.resources = (resourcesData.data || []).map((item: Record<string, unknown>) => ({
-            id: item.id,
-            slug: item.slug,
-            title: item.judul,
-            kategori: item.kategori,
-            format: 'PDF',
-          }));
-        }
-      } catch (error) {
-        console.error('Error searching resources:', error);
-      }
-    }
-
-    results.total = results.lomba.length + results.prestasi.length + results.expo.length + results.resources.length;
+    results.total = results.lomba.length + results.prestasi.length + results.expo.length;
 
     return NextResponse.json(results);
   } catch (error) {

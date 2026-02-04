@@ -36,10 +36,10 @@ APM Portal adalah website untuk Politeknik Negeri Malang (Polinema) yang berfung
 |-------|------------|
 | Frontend | Next.js 14 (App Router) |
 | Styling | Tailwind CSS |
-| CMS/Backend | Directus 10.10 |
+| CMS/Backend | Custom Next.js API |
 | Database | PostgreSQL 15 |
 | Container | Docker |
-| Auth | Directus Authentication |
+| Auth | JWT Authentication |
 
 ### User Roles
 

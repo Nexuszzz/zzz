@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { mainNavigation } from '@/lib/constants';
@@ -31,13 +32,18 @@ export function Header() {
       <div className="container-apm">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">APM</span>
-            </div>
+          <Link href="/" className="flex items-center gap-3">
+            <Image
+              src="/logo/logo.png"
+              alt="APM Portal Logo"
+              width={56}
+              height={56}
+              className="w-14 h-14 object-contain"
+              priority
+            />
             <div className="hidden sm:block">
-              <span className="font-bold text-primary text-lg">APM</span>
-              <span className="text-text-muted text-xs block -mt-1">Portal</span>
+              <span className="font-bold text-primary text-lg">APM Portal</span>
+              <span className="text-text-muted text-xs block -mt-1">Polinema</span>
             </div>
           </Link>
 

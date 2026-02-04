@@ -35,7 +35,7 @@ const TOKEN_EXPIRATION = '7d'
 export const AUTH_COOKIE_NAME = 'apm_auth_token'
 
 /**
- * Legacy cookie name (from old Directus login)
+ * Legacy cookie name (from old system)
  */
 export const LEGACY_COOKIE_NAME = 'admin_token'
 

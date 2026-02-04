@@ -21,187 +21,146 @@ import {
 } from 'lucide-react';
 
 // Data Struktur Organisasi APM Polinema
-// TODO: Fetch from Directus team_members collection
+// Khusus untuk Jurusan Teknik Elektro - Prodi Telekomunikasi
+// Periode 2025-2026
 const strukturOrganisasi = {
     pembina: {
-        nama: 'Lorem Ipsum Dolor, S.T.',
+        nama: 'Lorem Ipsum Dolor, S.T., M.T.',
         jabatan: 'Pembina APM',
         nip: '000000000000000000',
-        unit: 'Wakil Direktur III',
+        unit: 'Dosen/Tenaga Pendidik',
         foto: null,
         email: 'pembina@polinema.ac.id',
     },
-    ketua: {
-        nama: 'Amet Consectetur, S.T., M.T.',
-        jabatan: 'Ketua APM Polinema',
-        nip: '000000000000000001',
-        unit: 'Jurusan Teknologi Informasi',
-        foto: null,
-        email: 'ketua.apm@polinema.ac.id',
-        tugas: [
-            'Koordinasi seluruh kegiatan APM',
-            'Pengambilan keputusan strategis',
-            'Representasi APM di tingkat institusi'
-        ]
-    },
-    wakil: {
-        nama: 'Adipiscing Elit, S.Kom., M.Kom.',
-        jabatan: 'Wakil Ketua APM',
-        nip: '000000000000000002',
-        unit: 'Jurusan Teknik Elektro',
-        foto: null,
-        email: 'wakil.apm@polinema.ac.id',
-        tugas: [
-            'Mendampingi Ketua dalam koordinasi',
-            'Supervisi divisi-divisi',
-            'Pengelolaan kerjasama eksternal'
-        ]
-    },
-    sekretaris: {
-        nama: 'Sed Do Eiusmod, S.Kom., M.Kom.',
-        jabatan: 'Sekretaris',
-        nip: '000000000000000003',
-        unit: 'Jurusan Teknologi Informasi',
-        foto: null,
-        email: 'sekretaris.apm@polinema.ac.id',
-        tugas: [
-            'Administrasi dan dokumentasi',
-            'Korespondensi organisasi',
-            'Pengelolaan arsip'
-        ]
-    },
-    bendahara: {
-        nama: 'Tempor Incididunt, S.E., M.M.',
-        jabatan: 'Bendahara',
-        nip: '000000000000000004',
-        unit: 'Jurusan Akuntansi',
-        foto: null,
-        email: 'bendahara.apm@polinema.ac.id',
-        tugas: [
-            'Pengelolaan keuangan',
-            'Penganggaran kegiatan',
-            'Pelaporan keuangan'
-        ]
+    bph: {
+        ketua: {
+            nama: 'Amet Consectetur, S.T., M.T.',
+            jabatan: 'Ketua',
+            unit: 'Badan Pengurus Harian (BPH)',
+            foto: null,
+            email: 'ketua.apm@polinema.ac.id',
+            tugas: [
+                'Memimpin arah komunitas & keputusan akhir',
+                'Mengkoordinasi semua koordinator divisi',
+                'Mengurus komunikasi formal ke kampus/pembina'
+            ]
+        },
+        sekretaris: {
+            nama: 'Sed Do Eiusmod, S.Kom.',
+            jabatan: 'Sekretaris',
+            unit: 'Badan Pengurus Harian (BPH)',
+            foto: null,
+            email: 'sekretaris.apm@polinema.ac.id',
+            tugas: [
+                'Notulen rapat, arsip dokumen, SOP',
+                'Administrasi surat/izin/event',
+                'Jadwal rapat & kalender internal'
+            ]
+        },
+        bendahara: {
+            nama: 'Tempor Incididunt, S.E.',
+            jabatan: 'Bendahara',
+            unit: 'Badan Pengurus Harian (BPH)',
+            foto: null,
+            email: 'bendahara.apm@polinema.ac.id',
+            tugas: [
+                'Pencatatan pemasukan/pengeluaran',
+                'Proposal dana/sponsorship (bareng Humas)',
+                'Laporan keuangan sederhana per bulan/event'
+            ]
+        },
     },
     divisi: [
         {
-            nama: 'Divisi Lomba & Kompetisi',
+            nama: 'Divisi Web/IT & Data',
             kepala: {
-                nama: 'Ut Labore Dolore, S.Pd., M.Pd.',
-                jabatan: 'Kepala Divisi',
-                nip: '000000000000000005',
-                unit: 'Jurusan Administrasi Niaga',
+                nama: 'Ut Labore Dolore',
+                jabatan: 'Koordinator Divisi',
+                unit: 'Mahasiswa Telekomunikasi',
                 foto: null,
             },
-            anggota: [
-                { nama: 'Magna Aliqua, S.T.', jabatan: 'Koordinator Lomba Nasional', unit: 'JTI' },
-                { nama: 'Enim Minim, S.Kom.', jabatan: 'Koordinator Lomba Internasional', unit: 'JTE' },
-                { nama: 'Veniam Quis', jabatan: 'Staff Admin', unit: 'Mahasiswa JTI' },
-            ],
             tugas: [
-                'Kurasi informasi lomba',
-                'Fasilitasi pendaftaran lomba',
-                'Pembinaan peserta lomba',
-                'Dokumentasi hasil lomba'
+                'Website/portal, domain, form pendaftaran, maintenance',
+                'Dokumentasi teknis, akun & akses, database lomba/event',
+                'Support kebutuhan digital event'
             ],
             warna: 'from-blue-500 to-indigo-600'
         },
         {
-            nama: 'Divisi Prestasi & Dokumentasi',
+            nama: 'Divisi Media Kreatif & Branding',
             kepala: {
-                nama: 'Nostrud Exercitation, S.T., M.T.',
-                jabatan: 'Kepala Divisi',
-                nip: '000000000000000006',
-                unit: 'Jurusan Teknik Mesin',
+                nama: 'Nostrud Exercitation',
+                jabatan: 'Koordinator Divisi',
+                unit: 'Mahasiswa Telekomunikasi',
                 foto: null,
             },
-            anggota: [
-                { nama: 'Ullamco Laboris, S.Pd.', jabatan: 'Koordinator Prestasi', unit: 'JAK' },
-                { nama: 'Nisi Aliquip', jabatan: 'Staff Dokumentasi', unit: 'Mahasiswa JTI' },
-                { nama: 'Commodo Consequat', jabatan: 'Staff Verifikasi', unit: 'Mahasiswa JAN' },
-            ],
             tugas: [
-                'Verifikasi prestasi mahasiswa',
-                'Dokumentasi pencapaian',
-                'Publikasi prestasi',
-                'Penghargaan mahasiswa berprestasi'
-            ],
-            warna: 'from-amber-500 to-orange-600'
-        },
-        {
-            nama: 'Divisi Expo & Event',
-            kepala: {
-                nama: 'Duis Aute Irure, S.E., M.M.',
-                jabatan: 'Kepala Divisi',
-                nip: '000000000000000007',
-                unit: 'Jurusan Administrasi Niaga',
-                foto: null,
-            },
-            anggota: [
-                { nama: 'Dolor Reprehenderit, S.Kom.', jabatan: 'Koordinator Event', unit: 'JTI' },
-                { nama: 'Voluptate Velit', jabatan: 'Staff Logistik', unit: 'Mahasiswa JAK' },
-                { nama: 'Esse Cillum', jabatan: 'Staff Publikasi', unit: 'Mahasiswa JTI' },
-            ],
-            tugas: [
-                'Penyelenggaraan expo tahunan',
-                'Koordinasi event kampus',
-                'Manajemen vendor',
-                'Promosi dan publikasi event'
-            ],
-            warna: 'from-emerald-500 to-teal-600'
-        },
-        {
-            nama: 'Divisi Media & Teknologi',
-            kepala: {
-                nama: 'Fugiat Nulla Pariatur, S.Ds., M.Ds.',
-                jabatan: 'Kepala Divisi',
-                nip: '000000000000000008',
-                unit: 'Jurusan Teknologi Informasi',
-                foto: null,
-            },
-            anggota: [
-                { nama: 'Excepteur Sint, S.Kom.', jabatan: 'Web Developer', unit: 'JTI' },
-                { nama: 'Occaecat Cupidatat', jabatan: 'Graphic Designer', unit: 'Mahasiswa JTI' },
-                { nama: 'Proident Sunt', jabatan: 'Social Media Manager', unit: 'Mahasiswa JAN' },
-            ],
-            tugas: [
-                'Pengembangan website APM',
-                'Desain grafis dan branding',
-                'Pengelolaan media sosial',
-                'Dokumentasi multimedia'
+                'Logo, guideline visual, desain poster',
+                'Konten IG/TT/LinkedIn, dokumentasi foto/video',
+                'Publikasi capaian prestasi & kegiatan'
             ],
             warna: 'from-purple-500 to-pink-600'
         },
         {
-            nama: 'Divisi Kerjasama & Sponsorship',
+            nama: 'Divisi Event & Edukasi',
             kepala: {
-                nama: 'Culpa Qui Officia, S.E., M.M.',
-                jabatan: 'Kepala Divisi',
-                nip: '000000000000000009',
-                unit: 'Jurusan Akuntansi',
+                nama: 'Duis Aute Irure',
+                jabatan: 'Koordinator Divisi',
+                unit: 'Mahasiswa Telekomunikasi',
                 foto: null,
             },
-            anggota: [
-                { nama: 'Deserunt Mollit, S.E.', jabatan: 'Koordinator Sponsorship', unit: 'JAK' },
-                { nama: 'Anim Id Est', jabatan: 'Staff Partnership', unit: 'Mahasiswa JAN' },
-            ],
             tugas: [
-                'Pencarian sponsor kegiatan',
-                'Kerjasama dengan industri',
-                'Pengelolaan MoU',
-                'Hubungan alumni'
+                'Kelas/mini workshop (teknologi/robotik/penulisan, dll)',
+                'Seminar sharing lomba, coaching clinic proposal/pitch',
+                'Rundown, PIC acara, evaluasi event'
+            ],
+            warna: 'from-emerald-500 to-teal-600'
+        },
+        {
+            nama: 'Divisi Kompetisi & Prestasi',
+            kepala: {
+                nama: 'Fugiat Nulla Pariatur',
+                jabatan: 'Koordinator Divisi',
+                unit: 'Mahasiswa Telekomunikasi',
+                foto: null,
+            },
+            tugas: [
+                'Kurasi info lomba (internal/eksternal) + reminder deadline',
+                'Mentoring: proposal, pitch deck, presentasi, penulisan',
+                'Sistem "submit prestasi" + verifikasi data (bareng admin portal)'
+            ],
+            warna: 'from-amber-500 to-orange-600'
+        },
+        {
+            nama: 'Divisi Humas & Partnership',
+            kepala: {
+                nama: 'Culpa Qui Officia',
+                jabatan: 'Koordinator Divisi',
+                unit: 'Mahasiswa Telekomunikasi',
+                foto: null,
+            },
+            tugas: [
+                'Kolaborasi dengan komunitas/ormawa lain',
+                'Sponsor, media partner, narasumber',
+                'Hubungan eksternal & relasi kampus'
             ],
             warna: 'from-cyan-500 to-blue-600'
         },
-    ],
-    koordinatorJurusan: [
-        { jurusan: 'Jurusan Teknologi Informasi', kode: 'JTI', nama: 'Lorem Ipsum, S.T., M.T.', foto: null },
-        { jurusan: 'Jurusan Teknik Elektro', kode: 'JTE', nama: 'Dolor Sit Amet, M.T.', foto: null },
-        { jurusan: 'Jurusan Teknik Mesin', kode: 'JTM', nama: 'Consectetur Adipiscing, M.T.', foto: null },
-        { jurusan: 'Jurusan Teknik Sipil', kode: 'JTS', nama: 'Elit Sed Do, M.T.', foto: null },
-        { jurusan: 'Jurusan Teknik Kimia', kode: 'JTK', nama: 'Eiusmod Tempor, M.T.', foto: null },
-        { jurusan: 'Jurusan Akuntansi', kode: 'JAK', nama: 'Incididunt Labore, M.M.', foto: null },
-        { jurusan: 'Jurusan Administrasi Niaga', kode: 'JAN', nama: 'Dolore Magna, M.M.', foto: null },
+        {
+            nama: 'Divisi SDM & Oprec',
+            kepala: {
+                nama: 'Deserunt Mollit',
+                jabatan: 'Koordinator Divisi',
+                unit: 'Mahasiswa Telekomunikasi',
+                foto: null,
+            },
+            tugas: [
+                'Rekrut anggota/pengurus, onboarding',
+                'Database anggota, minat & skill mapping',
+                'Culture & internal bonding'
+            ],
+            warna: 'from-rose-500 to-red-600'
+        },
     ]
 };
 
@@ -280,8 +239,6 @@ function DivisiCard({
 }: {
     divisi: typeof strukturOrganisasi.divisi[0]
 }) {
-    const [isExpanded, setIsExpanded] = useState(false);
-
     return (
         <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow">
             {/* Header */}
@@ -289,7 +246,7 @@ function DivisiCard({
                 <h3 className="font-bold text-white text-lg">{divisi.nama}</h3>
             </div>
 
-            {/* Kepala Divisi */}
+            {/* Koordinator Divisi */}
             <div className="p-5 border-b border-gray-100">
                 <div className="flex items-center gap-4">
                     <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${divisi.warna} flex items-center justify-center text-white font-bold`}>
@@ -304,45 +261,16 @@ function DivisiCard({
             </div>
 
             {/* Tugas */}
-            <div className="p-5 bg-gray-50 border-b border-gray-100">
-                <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Tugas Utama</p>
-                <ul className="grid grid-cols-2 gap-2">
+            <div className="p-5 bg-gray-50">
+                <p className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">Tugas & Tanggung Jawab</p>
+                <ul className="space-y-2">
                     {divisi.tugas.map((t, i) => (
-                        <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
-                            <Star className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                            <Star className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                             {t}
                         </li>
                     ))}
                 </ul>
-            </div>
-
-            {/* Anggota (Collapsible) */}
-            <div className="p-5">
-                <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="flex items-center justify-between w-full text-left"
-                >
-                    <span className="text-sm font-semibold text-gray-700">
-                        Anggota Tim ({divisi.anggota.length})
-                    </span>
-                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                </button>
-
-                {isExpanded && (
-                    <div className="mt-4 space-y-3">
-                        {divisi.anggota.map((anggota, i) => (
-                            <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-sm">
-                                    {anggota.nama.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900">{anggota.nama}</p>
-                                    <p className="text-xs text-gray-500">{anggota.jabatan} • {anggota.unit}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -376,11 +304,11 @@ export default function StrukturOrganisasiPage() {
                                 Struktur Organisasi APM
                             </h1>
                             <p className="text-white/80 mt-2 max-w-2xl">
-                                Struktur kepengurusan Ajang Prestasi Mahasiswa Politeknik Negeri Malang periode 2025-2026
+                                Struktur kepengurusan Ajang Prestasi Mahasiswa - Jurusan Teknik Elektro Prodi Telekomunikasi periode 2025-2026
                             </p>
                         </div>
                         <div className="flex gap-3">
-                            <Link href="/about">
+                            <Link href="/tentang">
                                 <Button variant="outline" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
                                     Tentang APM
                                 </Button>
@@ -392,22 +320,6 @@ export default function StrukturOrganisasiPage() {
 
             {/* Main Content */}
             <div className="container-apm py-12">
-
-                {/* Info Periode */}
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6 mb-12 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-                            <Calendar className="w-6 h-6 text-amber-600" />
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-gray-900">Periode Kepengurusan 2025-2026</h3>
-                            <p className="text-sm text-gray-600">SK Direktur No. 123/PL4/HK/2025 tentang Penetapan Pengurus APM</p>
-                        </div>
-                    </div>
-                    <Badge variant="accent" className="self-start md:self-center">
-                        <Star className="w-3 h-3 mr-1" /> Aktif
-                    </Badge>
-                </div>
 
                 {/* Org Chart Visual */}
                 <div className="mb-16">
@@ -430,69 +342,47 @@ export default function StrukturOrganisasiPage() {
                         <div className="w-0.5 h-12 bg-gradient-to-b from-gray-400 to-primary"></div>
                     </div>
 
-                    {/* Level 2: Ketua */}
-                    <div className="flex justify-center mb-8">
-                        <div className="text-center">
-                            <Badge variant="primary" className="mb-3">
-                                <Crown className="w-3 h-3 mr-1" /> Ketua
+                    {/* Level 2: BPH (Badan Pengurus Harian) */}
+                    <div className="mb-12">
+                        <div className="flex justify-center mb-6">
+                            <Badge variant="primary" className="text-base px-4 py-2">
+                                <Crown className="w-4 h-4 mr-2" /> Badan Pengurus Harian (BPH)
                             </Badge>
-                            <PersonCard
-                                {...strukturOrganisasi.ketua}
-                                size="lg"
-                                showTugas={true}
-                                gradient="from-primary to-primary-700"
-                            />
                         </div>
-                    </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                            {/* Ketua */}
+                            <div className="text-center">
+                                <Badge variant="outline" className="mb-3 bg-primary/10 text-primary border-primary/30">Ketua</Badge>
+                                <PersonCard
+                                    {...strukturOrganisasi.bph.ketua}
+                                    size="md"
+                                    showTugas={true}
+                                    gradient="from-primary to-primary-700"
+                                />
+                            </div>
 
-                    {/* Connector Line */}
-                    <div className="flex justify-center mb-8">
-                        <div className="w-0.5 h-8 bg-primary"></div>
-                    </div>
+                            {/* Sekretaris */}
+                            <div className="text-center">
+                                <Badge variant="outline" className="mb-3 bg-blue-50 text-blue-700 border-blue-200">Sekretaris</Badge>
+                                <PersonCard
+                                    {...strukturOrganisasi.bph.sekretaris}
+                                    size="md"
+                                    showTugas={true}
+                                    gradient="from-blue-500 to-indigo-600"
+                                />
+                            </div>
 
-                    {/* Level 3: Wakil Ketua */}
-                    <div className="flex justify-center mb-8">
-                        <div className="text-center">
-                            <Badge variant="secondary" className="mb-3">Wakil Ketua</Badge>
-                            <PersonCard
-                                {...strukturOrganisasi.wakil}
-                                size="md"
-                                showTugas={true}
-                                gradient="from-secondary to-secondary-600"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Connector Lines to Sekretaris & Bendahara */}
-                    <div className="flex justify-center mb-8">
-                        <div className="relative w-full max-w-md">
-                            <div className="absolute left-1/2 top-0 w-0.5 h-8 bg-primary -translate-x-1/2"></div>
-                            <div className="absolute left-1/4 top-8 right-1/4 h-0.5 bg-primary"></div>
-                            <div className="absolute left-1/4 top-8 w-0.5 h-8 bg-primary"></div>
-                            <div className="absolute right-1/4 top-8 w-0.5 h-8 bg-primary"></div>
-                            <div className="h-16"></div>
-                        </div>
-                    </div>
-
-                    {/* Level 4: Sekretaris & Bendahara */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-12">
-                        <div className="text-center">
-                            <Badge variant="outline" className="mb-3 bg-blue-50 text-blue-700 border-blue-200">Sekretaris</Badge>
-                            <PersonCard
-                                {...strukturOrganisasi.sekretaris}
-                                size="md"
-                                showTugas={true}
-                                gradient="from-blue-500 to-indigo-600"
-                            />
-                        </div>
-                        <div className="text-center">
-                            <Badge variant="outline" className="mb-3 bg-emerald-50 text-emerald-700 border-emerald-200">Bendahara</Badge>
-                            <PersonCard
-                                {...strukturOrganisasi.bendahara}
-                                size="md"
-                                showTugas={true}
-                                gradient="from-emerald-500 to-teal-600"
-                            />
+                            {/* Bendahara */}
+                            <div className="text-center">
+                                <Badge variant="outline" className="mb-3 bg-emerald-50 text-emerald-700 border-emerald-200">Bendahara</Badge>
+                                <PersonCard
+                                    {...strukturOrganisasi.bph.bendahara}
+                                    size="md"
+                                    showTugas={true}
+                                    gradient="from-emerald-500 to-teal-600"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -504,46 +394,12 @@ export default function StrukturOrganisasiPage() {
                             <Briefcase className="w-3 h-3 mr-1" /> Divisi
                         </Badge>
                         <h2 className="text-xl font-bold text-gray-900">Divisi-Divisi APM</h2>
-                        <p className="text-gray-600 mt-2">5 divisi yang menjalankan program kerja APM</p>
+                        <p className="text-gray-600 mt-2">6 divisi yang menjalankan program kerja APM (masing-masing 1 koordinator)</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {strukturOrganisasi.divisi.map((divisi, index) => (
                             <DivisiCard key={index} divisi={divisi} />
-                        ))}
-                    </div>
-                </div>
-
-                {/* Koordinator Jurusan */}
-                <div className="mb-16">
-                    <div className="text-center mb-8">
-                        <Badge variant="secondary" className="mb-3">
-                            <GraduationCap className="w-3 h-3 mr-1" /> Koordinator
-                        </Badge>
-                        <h2 className="text-xl font-bold text-gray-900">Koordinator APM Per Jurusan</h2>
-                        <p className="text-gray-600 mt-2">Perwakilan APM di setiap jurusan</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {strukturOrganisasi.koordinatorJurusan.map((koord, index) => (
-                            <div
-                                key={index}
-                                className="bg-white rounded-xl shadow-lg border border-gray-100 p-5 hover:shadow-xl transition-shadow"
-                            >
-                                <div className="flex items-center gap-3 mb-3">
-                                    <Badge variant="primary" size="sm">{koord.kode}</Badge>
-                                    <span className="text-xs text-gray-500">{koord.jurusan}</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-sm">
-                                        {koord.nama.split(' ').slice(0, 2).map(n => n[0]).join('')}
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-gray-900 text-sm">{koord.nama}</p>
-                                        <p className="text-xs text-primary">Koordinator</p>
-                                    </div>
-                                </div>
-                            </div>
                         ))}
                     </div>
                 </div>

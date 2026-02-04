@@ -5,21 +5,13 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**.directus.io',
+        hostname: 'placehold.co',
       },
       {
         protocol: 'http',
         hostname: 'localhost',
       },
     ],
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/cms/:path*',
-        destination: `${process.env.NEXT_PUBLIC_DIRECTUS_URL || 'http://localhost:8055'}/:path*`,
-      },
-    ];
   },
 };
 

@@ -11,7 +11,7 @@ import { jwtVerify } from 'jose';
 
 // Cookie names
 const AUTH_COOKIE_NAME = 'apm_auth_token';
-const LEGACY_COOKIE_NAME = 'admin_token'; // Legacy Directus cookie
+const LEGACY_COOKIE_NAME = 'admin_token'; // Legacy cookie
 
 /**
  * Verify JWT token in Edge Runtime (middleware)
